@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --font-arabic: "KanzAlMarjaan", Arial, sans-serif;
+}
+
+@font-face {
+  font-family: "KanzAlMarjaan";
+  src: url("/fonts/KanzAlMarjaan.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+body {
+  background-color: #f3f4f6;
+}
+
+/* THE TRUE A4 PHYSICAL BOX */
+.a4-print-box {
+  width: 210mm;
+  height: 297mm; /* Strictly locks to A4 Height */
+  margin: 30px auto;
+  background: white;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  padding: 15mm 20mm; /* Hardcoded breathable margins */
+  direction: rtl; 
+  position: relative;
+  overflow: hidden; /* Prevents text from spilling out */
+  display: flex;
+  flex-direction: column;
+}
+
+/* FLawless PDF Printing Instructions */
+@media print {
+  @page { margin: 0; size: A4 portrait; }
+  body { background-color: white; margin: 0; padding: 0; }
+  
+  .a4-print-box { 
+    margin: 0 !important; 
+    border: none !important; 
+    box-shadow: none !important; 
+    page-break-after: always;
+    break-after: page;
+  }
+}
