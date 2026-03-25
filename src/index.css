@@ -1,8 +1,6 @@
-@import "tailwindcss";
-
-@theme {
-  --font-arabic: "KanzAlMarjaan", Arial, sans-serif;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @font-face {
   font-family: "KanzAlMarjaan";
@@ -16,29 +14,70 @@ body {
   background-color: #f3f4f6;
 }
 
-/* THE TRUE A4 PHYSICAL BOX */
-.a4-print-box {
-  width: 210mm;
-  height: 297mm; /* Strictly locks to A4 Height */
-  margin: 30px auto;
-  background: white;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-  padding: 15mm 20mm; /* Hardcoded breathable margins */
-  direction: rtl; 
-  position: relative;
-  overflow: hidden; /* Prevents text from spilling out */
-  display: flex;
-  flex-direction: column;
+.font-arabic {
+  font-family: "KanzAlMarjaan", Arial, sans-serif !important;
 }
 
-/* FLawless PDF Printing Instructions */
+/* Restores smooth horizontal scrolling on mobile phones */
+.a4-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centers perfectly on large screens */
+  padding-top: 20px;
+}
+
+/* STRICT A4 SHEET PREVIEW */
+.a4-sheet {
+  width: 210mm;
+  min-width: 210mm; /* Forces the browser to respect the width, enabling scrolling */
+  height: 297mm; 
+  background: white;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  padding: 15mm 20mm; 
+  box-sizing: border-box;
+  direction: rtl; 
+  position: relative; 
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 30px;
+}
+
+/* Unlocks the centering on mobile so the sides don't get cut off! */
+@media (max-width: 820px) {
+  .a4-wrapper {
+    align-items: flex-start; 
+  }
+  .a4-sheet {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+}
+
+/* Hides default browser arrows on number inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* FLAWLESS PDF PRINTING */
 @media print {
+  * {
+    /* This forces the browser to print your grey backgrounds! */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
   @page { margin: 0; size: A4 portrait; }
   body { background-color: white; margin: 0; padding: 0; }
-  
-  .a4-print-box { 
+  .a4-wrapper { overflow: visible; padding: 0; display: block; margin: 0; }
+  .a4-sheet { 
     margin: 0 !important; 
-    border: none !important; 
     box-shadow: none !important; 
     page-break-after: always;
     break-after: page;
