@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db, auth, googleProvider } from './firebase'
-import { collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc, getDoc, setDoc } from 'firebase/firestore'
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
 
 const DARAJAH_OPTIONS = ['روضة أطفال', 'الدرجة الأولى', 'الدرجة الثانية', 'الدرجة الثالثة', 'الدرجة الرابعة', 'الدرجة الخامسة', 'الدرجة السادسة', 'الدرجة السابعة', 'الدرجة الثامنة', 'الدرجة التاسعة', 'الدرجة العاشرة'];
@@ -12,6 +12,9 @@ const toArabicNumerals = (num) => {
   const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
   return String(num).replace(/[0-9]/g, w => arabicNumbers[+w]);
 };
+
+// Set the default school info here
+const DEFAULT_SCHOOL_INFO = { nameAr: 'پنجتنية هاير سيكندري اسكول - برواني', logo: '' };
 
 function App() {
   const [user, setUser] = useState(null);
@@ -25,8 +28,8 @@ function App() {
   const [schoolSettings, setSchoolSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('schoolSettings');
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : { nameAr: 'المجمع المركزي للتربية والتعليم', nameEn: 'PHS SCHOOL', logo: '' };
-    } catch(e) { return { nameAr: 'المجمع المركزي للتربية والتعليم', nameEn: 'PHS SCHOOL', logo: '' }; }
+      return (saved && saved !== 'undefined') ? JSON.parse(saved) : DEFAULT_SCHOOL_INFO;
+    } catch(e) { return DEFAULT_SCHOOL_INFO; }
   });
 
   const [paperData, setHeaderData] = useState({
@@ -47,7 +50,12 @@ function App() {
   useEffect(() => {
     document.title = "LSD - Exam Paper Generator";
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) { setUser(currentUser); setAppState('dashboard'); loadUserPapers(currentUser.uid); } 
+      if (currentUser) { 
+        setUser(currentUser); 
+        setAppState('dashboard'); 
+        loadUserSettings(currentUser.uid); // Load user's cloud settings
+        loadUserPapers(currentUser.uid); 
+      } 
       else { setUser(null); setAppState('login'); }
     });
     return () => unsubscribe();
@@ -55,6 +63,26 @@ function App() {
 
   const handleLogin = async () => { try { await signInWithPopup(auth, googleProvider); } catch (error) { console.error(error); alert("Login failed!"); } };
   const handleLogout = async () => { try { await signOut(auth); setAppState('login'); } catch (error) { console.error(error); } };
+
+  // --- CLOUD SETTINGS LOGIC ---
+  const loadUserSettings = async (userId) => {
+    try {
+      const docRef = doc(db, "users", userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists() && docSnap.data().schoolSettings) {
+        setSchoolSettings(docSnap.data().schoolSettings);
+        localStorage.setItem('schoolSettings', JSON.stringify(docSnap.data().schoolSettings));
+      }
+    } catch (error) { console.error("Error loading user settings:", error); }
+  };
+
+  const saveUserSettingsToCloud = async (settingsToSave) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, "users", user.uid), { schoolSettings: settingsToSave }, { merge: true });
+    } catch (error) { console.error("Error saving settings to cloud:", error); }
+  };
+  // ----------------------------
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -79,6 +107,11 @@ function App() {
     const newSettings = { ...schoolSettings, [e.target.name]: e.target.value };
     setSchoolSettings(newSettings);
     try { localStorage.setItem('schoolSettings', JSON.stringify(newSettings)); } catch(e){}
+  };
+
+  const closeSettingsModal = () => {
+    setIsSettingsOpen(false);
+    saveUserSettingsToCloud(schoolSettings); // Save to Firebase when closing
   };
 
   const loadUserPapers = async (userId) => {
@@ -218,7 +251,6 @@ function App() {
     let currentItems = [];
     let currentHeight = 0;
     
-    // YOUR PERFECT SAFE ZONE: 980px 
     const MAX_PAGE_HEIGHT = 980; 
 
     const pushPage = () => {
@@ -399,9 +431,9 @@ function App() {
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 print:hidden">
            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 relative">
-              <button onClick={() => setIsSettingsOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 font-bold text-xl">✕</button>
+              <button onClick={closeSettingsModal} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 font-bold text-xl">✕</button>
               <h2 className="text-xl font-bold text-gray-800 mb-6">⚙️ Application Settings</h2>
-              <div className="mb-6 border-b pb-6">
+              <div className="border-b pb-6">
                 <h3 className="font-bold text-gray-700 mb-2">🏫 School Info</h3>
                 <label className="block text-xs text-gray-500 mb-1">School Name (Arabic)</label>
                 <input type="text" name="nameAr" value={schoolSettings?.nameAr || ''} onChange={handleSettingChange} className="w-full border p-2 rounded mb-3 font-arabic text-lg" dir="rtl" />
@@ -414,6 +446,9 @@ function App() {
                    )}
                 </div>
                 {schoolSettings?.logo && <div className="mt-3 flex justify-center bg-gray-50 border p-2 rounded"><img src={schoolSettings.logo} alt="Preview" className="h-12 object-contain" /></div>}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button onClick={closeSettingsModal} className="bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 transition font-bold text-sm">Save & Close</button>
               </div>
            </div>
         </div>
