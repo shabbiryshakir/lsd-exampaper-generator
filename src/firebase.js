@@ -6,7 +6,12 @@ import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPas
 const firebaseConfig = {
   // KEEP YOUR EXISTING KEYS HERE!
   apiKey: "AIzaSyDe0Qm6X4co1QspnmzcJkh_mtrDkX-bM8s",
-  authDomain: "imani-paper-generator.firebaseapp.com",
+  // Sign-in is handed over on the app's own address when it is hosted on github.io (the helper
+  // pages live at shabbiryshakir.github.io/__/auth/). Phones block the hand-over between different
+  // sites, which left installed apps stuck on the sign-in page.
+  authDomain: typeof window !== "undefined" && window.location.hostname === "shabbiryshakir.github.io"
+    ? "shabbiryshakir.github.io"
+    : "imani-paper-generator.firebaseapp.com",
   projectId: "imani-paper-generator",
   storageBucket: "imani-paper-generator.firebasestorage.app",
   messagingSenderId: "54707371279",
