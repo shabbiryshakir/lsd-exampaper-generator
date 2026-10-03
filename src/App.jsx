@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useDeferredValue, useMemo } from 'react'
 import { db, auth, googleProvider } from './firebase'
 import { collection, getDocs, query, where, doc, deleteDoc, getDoc, setDoc, onSnapshot, runTransaction } from 'firebase/firestore'
-import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import Editor from './components/Editor'
 import PaperPreview from './components/PaperPreview'
 import Icon from './components/Icon'
 import ErrorBoundary from './components/ErrorBoundary'
+import AdminPanel, { isAdmin } from './components/AdminPanel'
 import { Wordmark, BrandMark } from './components/Brand'
 import { BRAND, BUILD_TIME } from './lib/brand'
 import { DEFAULT_SCHOOL_INFO, uid, LANGUAGES, langOf, defaultsFor, normalizeSubjects, normalizeHeader, normalizeLayout, paperSizeKb, cloneWithNewIds, pickPrint, answerStats, grandTotal, toCloud, fromCloud } from './lib/paper'
@@ -40,6 +41,12 @@ const timeAgo = (t) => {
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   return new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+const signInMessage = (error) => {
+  const code = error?.code || '';
+  if (code === 'auth/network-request-failed') return 'Sign-in failed: no internet connection. Please try again.';
+  if (code === 'auth/unauthorized-domain') return 'Sign-in is not allowed on this web address yet. Please tell the admin.';
+  return `Sign-in did not finish (${code || 'unknown error'}). Please try again.`;
 };
 const firstName = (n) => (n || '').trim().split(/\s+/)[0] || 'Teacher';
 const initials = (n) => (n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -275,9 +282,13 @@ function App() {
         setUser(currentUser);
         setAppState(s => (s === 'loading' || s === 'login' ? 'dashboard' : s));
         loadUserDoc(currentUser.uid);
+        // Name and email let the admin panel show who each teacher is.
+        setDoc(doc(db, 'users', currentUser.uid), { displayName: currentUser.displayName || '', email: currentUser.email || '', lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
         loadUserPapers(currentUser.uid);
       } else { setUser(null); setAppState('login'); }
     });
+    // Finish a redirect sign-in (used only when a popup cannot open) and say why it failed, if it did.
+    getRedirectResult(auth).catch(error => { console.error(error); setLoginError(signInMessage(error)); });
     return () => unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -321,12 +332,21 @@ function App() {
     });
   }, [appState, papersLoading, savedPapers, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sign in with a popup. The redirect way loses the sign-in in browsers that block third-party
+  // storage (Safari, the installed app, newer Chrome) because the app and the Firebase sign-in page
+  // are on different sites, which sent teachers back to the sign-in page. So redirect is a last resort.
+  const [loginError, setLoginError] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
   const handleLogin = async () => {
+    setLoginError(''); setLoggingIn(true);
     try { await signInWithPopup(auth, googleProvider); }
     catch (error) {
-      if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/operation-not-supported-in-this-environment') return signInWithRedirect(auth, googleProvider);
-      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') { console.error(error); alert('Sign-in failed. Please check your internet connection and try again.'); }
+      const code = error?.code;
+      if (code === 'auth/operation-not-supported-in-this-environment') { setLoggingIn(false); return signInWithRedirect(auth, googleProvider); }
+      if (code === 'auth/popup-blocked') setLoginError('Your browser blocked the sign-in window. Please allow pop-ups for this site and tap Sign in again.');
+      else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') { console.error(error); setLoginError(signInMessage(error)); }
     }
+    setLoggingIn(false);
   };
   const handleLogout = async () => {
     if (!window.confirm('Sign out of this device?')) return;
@@ -717,10 +737,11 @@ function App() {
               <li key={t} className="flex items-center gap-3"><span className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center"><Icon name={ic} size={18} /></span><span className="font-medium">{t}</span></li>
             ))}
           </ul>
-          <button onClick={handleLogin} className="w-full bg-white text-slate-900 font-bold text-lg py-4 px-4 rounded-2xl hover:bg-brand-50 shadow-lg inline-flex items-center justify-center gap-3">
+          <button onClick={handleLogin} disabled={loggingIn} className="disabled:opacity-70 w-full bg-white text-slate-900 font-bold text-lg py-4 px-4 rounded-2xl hover:bg-brand-50 shadow-lg inline-flex items-center justify-center gap-3">
             <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
             Continue with Google
           </button>
+          {loginError && <p role="alert" className="text-amber-300 text-sm mt-4 text-center">{loginError}</p>}
           {!online && <p className="text-amber-300 text-sm mt-4 text-center">You are offline. Connect to the internet to sign in.</p>}
           <p className="text-brand-200/70 text-xs text-center mt-6">A free community tool for teachers · Your papers stay private unless you share them</p>
         </div>
@@ -819,12 +840,17 @@ function App() {
             </>
           ) : appState === 'shared' ? (
             <>
-              <IconButton icon="ArrowLeft" label="Back to home" onClick={() => { setSharedView(null); setAppState('dashboard'); }} />
+              <IconButton icon="ArrowLeft" label="Back" onClick={() => { const fromAdmin = sharedView?.type === 'admin'; setSharedView(null); setAppState(fromAdmin ? 'admin' : 'dashboard'); }} />
               <div className="flex-1 min-w-0 px-1">
                 <div className="text-lg font-bold text-slate-900 truncate leading-tight" dir="auto">{sharedView?.title}</div>
-                <div className="text-xs text-slate-500 truncate">Shared by {sharedView?.ownerName} · view only</div>
+                <div className="text-xs text-slate-500 truncate">{sharedView?.type === 'admin' ? 'By' : 'Shared by'} {sharedView?.ownerName} · view only</div>
               </div>
               <PrimaryBtn onClick={() => { duplicatePaper(sharedView.data, 'Saved to your papers'); setSharedView(null); }} className="px-4 py-2.5 text-sm rounded-xl"><Icon name="Plus" size={16} /><span className="hidden sm:inline">Save to my papers</span><span className="sm:hidden">Save</span></PrimaryBtn>
+            </>
+          ) : appState === 'admin' ? (
+            <>
+              <IconButton icon="ArrowLeft" label="Back to home" onClick={() => setAppState('dashboard')} />
+              <div className="flex-1 min-w-0 px-1 text-lg font-bold text-slate-900">Admin</div>
             </>
           ) : (
             <>
@@ -949,6 +975,13 @@ function App() {
         </main>
       )}
 
+      {appState === 'admin' && isAdmin(user) && (
+        <AdminPanel onOpenPaper={(p, owner) => {
+          setSharedView({ type: 'admin', data: p, title: `${p.header?.examName || 'Untitled'} — ${p.header?.className || ''}`, ownerName: owner?.name || p.authorName || 'a teacher' });
+          setPreviewMode('paper'); setAppState('shared'); window.scrollTo(0, 0);
+        }} />
+      )}
+
       {/* ---------------- SHARED COPY (view only) ---------------- */}
       {appState === 'shared' && sharedView && (
         <main className="p-3 sm:p-5">
@@ -1027,6 +1060,7 @@ function App() {
           <MenuItem icon="Ticket" label="Enter a code" hint="Open a shared paper or join a colleague" onClick={() => openCodeModal()} />
           <MenuItem icon="School" label="School name & logo" hint="Printed on your papers" onClick={() => setModal('settings')} />
           <MenuItem icon="Settings" label="App settings" hint="Text size, default language" onClick={() => setModal('appSettings')} />
+          {isAdmin(user) && <MenuItem icon="ShieldCheck" label="Admin" hint="All teachers, papers and storage" onClick={() => { setModal(null); setAppState('admin'); window.scrollTo(0, 0); }} />}
           <MenuItem icon="Bell" label="What's new" onClick={openWhatsNew} dot={hasNews} />
           {!isStandalone() && <MenuItem icon="Smartphone" label="Install the app" onClick={handleInstall} />}
           <MenuItem icon="Info" label="Help & about" onClick={() => setModal('about')} />

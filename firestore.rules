@@ -5,10 +5,16 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
+    // Admin panel: read-only access to everything. Keep in sync with ADMIN_EMAILS in src/components/AdminPanel.jsx.
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email in ['shabbiryshakir@gmail.com'];
+    }
 
     // Teacher's own settings and templates.
     match /users/{userId} {
       allow read, write: if signedIn() && me() == userId;
+      allow read: if isAdmin();
     }
 
     // Papers: the owner (userId) and members can read and edit; only the owner deletes.
@@ -30,7 +36,7 @@ service cloud.firestore {
           && !(me() in request.resource.data.members)
           && resource.data.members.removeAll([me()]).hasAll(request.resource.data.members);
       }
-      allow read: if signedIn() && (resource == null || isOwner() || isMember());
+      allow read: if signedIn() && (resource == null || isOwner() || isMember() || isAdmin());
       allow create: if signedIn() && request.resource.data.userId == me();
       allow update: if signedIn() && (
         ((isOwner() || isMember()) && request.resource.data.userId == resource.data.userId)
