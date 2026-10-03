@@ -43,3 +43,33 @@ export const englishPaper = {
     ],
   }],
 };
+
+// Papers saved by older versions of the app, to make sure they still open.
+export const legacyPapers = [
+  {
+    id: 'legacy-1', userId: 'demo', lastEdited: '2026-03-01T10:00:00.000Z', authorName: 'Old',
+    header: { className: 'الدرجة الرابعة', examName: 'الامتحان السنوي ١٤٤٦هـ', paperNumber: 'Paper 1', time: '1 Hr 30 Mins' },
+    schoolBranding: { nameAr: 'مدرسة', logo: '' },
+    subjects: [
+      { id: 1711111111111, title: 'تعليم القرآن', questions: [
+        { id: 1711111111112, type: 'subjective', marks: '5', questionText: 'سؤال قديم', lines: 4 },
+        { id: 1711111111113, type: 'fillBlanks', marks: 3, text: 'خالي جگه', content: 'سطر * اول\nسطر * دوم' },
+        { id: 1711111111114, type: 'match', marks: 2, text: 'جوڑو' },
+      ] },
+    ],
+  },
+  {
+    id: 'legacy-2', userId: 'demo', lastEdited: '2026-04-01T10:00:00.000Z',
+    header: { className: 'الدرجة الخامسة', examName: 'اختبار', hijriYear: '1447', paperNumber: 'Paper 2', time: '1 Hr' },
+    subjects: [
+      { id: 1711111111120, title: 'لسان الدعوة', questions: [
+        { id: 1711111111121, type: 'subjective', marks: 4, text: 'لكهو', subQuestions: [{ id: 1711111111122, text: 'الف', lines: '3' }] },
+        { id: 1711111111123, type: 'fillBlanks', marks: 2, text: 'ثثوري كرو', blanks: [{ id: 1711111111124, text: 'جملة *', answer: 'جواب' }] },
+        { id: 1711111111125, type: 'match', marks: 2, text: 'جوڑو', pairs: [{ right: 'ا', left: 'ب' }, { right: 'ج', left: 'د' }] },
+      ] },
+      { id: 1711111111126, title: 'فارغ', questions: [] },
+    ],
+  },
+  { id: 'legacy-3', userId: 'demo', lastEdited: '2026-05-01T10:00:00.000Z', header: { examName: null, className: null }, subjects: null },
+  { id: 'legacy-4', userId: 'demo', lastEdited: '2026-05-02T10:00:00.000Z', header: { className: 'الدرجة الأولى', examName: 'ج', hijriYear: '1447' }, subjects: [{ title: 'بلا id', questions: [{ type: 'subjective', marks: 1, subQuestions: [{ text: 'x', lines: 2 }] }] }], layout: { language: 'xx', studentFields: 'bad' } },
+];

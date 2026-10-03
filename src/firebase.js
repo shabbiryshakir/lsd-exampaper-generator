@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 // NEW: Import Authentication tools
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 
 const firebaseConfig = {
   // KEEP YOUR EXISTING KEYS HERE!
@@ -29,3 +29,10 @@ export const db = firestore;
 // NEW: Export Auth tools
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+// Local testing only (npm run dev, open /?emu): use the Firebase emulators with a test teacher.
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('emu')) {
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  const email = 'teacher@test.local', pw = 'test-pass-123';
+  signInWithEmailAndPassword(auth, email, pw).catch(() => createUserWithEmailAndPassword(auth, email, pw));
+}

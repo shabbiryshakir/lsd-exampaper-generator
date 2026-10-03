@@ -3,6 +3,7 @@
 //   invites/{CODE} — lets a colleague join a paper; members edit the same questions together.
 // Papers keep `userId` (owner) and `members` (everyone who can edit, owner included).
 import { db } from '../firebase'
+import { toCloud, fromCloud } from './paper'
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, deleteField } from 'firebase/firestore'
 
 // No 0/O or 1/I, so codes are easy to read out loud and type.
@@ -24,7 +25,7 @@ const freshCode = async (collectionName) => {
 // ---- share a copy ----
 export async function createShare(user, { kind, title, data, existingCode }) {
   const code = existingCode || await freshCode('shares');
-  await setDoc(doc(db, 'shares', code), { kind, title, data: JSON.parse(JSON.stringify(data)), ownerId: user.uid, ownerName: who(user).name, updatedAt: new Date().toISOString() });
+  await setDoc(doc(db, 'shares', code), { kind, title, data: toCloud(JSON.parse(JSON.stringify(data))), ownerId: user.uid, ownerName: who(user).name, updatedAt: new Date().toISOString() });
   return code;
 }
 export const deleteShare = (code) => deleteDoc(doc(db, 'shares', code));
@@ -46,7 +47,7 @@ export async function lookupCode(raw) {
   const code = cleanCode(raw);
   if (code.length < 6) return null;
   const share = await getDoc(doc(db, 'shares', code));
-  if (share.exists()) return { type: 'share', code, ...share.data() };
+  if (share.exists()) return fromCloud({ type: 'share', code, ...share.data() });
   const invite = await getDoc(doc(db, 'invites', code));
   if (invite.exists()) return { type: 'invite', code, ...invite.data() };
   return null;

@@ -187,11 +187,17 @@ export const cloneWithNewIds = (obj) => {
 };
 
 // Upgrades any older saved paper format into the current shape.
-export const normalizeSubjects = (subjects) => (subjects || []).map(sub => ({
+// Missing ids get a fixed value (not a random one), so loading the same paper twice gives the same result.
+const list = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : []).filter(x => x && typeof x === 'object');
+export const normalizeSubjects = (subjects) => list(subjects).map((sub, si) => ({
   ...sub,
-  id: sub.id ?? uid(),
-  questions: (sub.questions || []).map(q => {
-    const n = { ...q, id: q.id ?? uid() };
+  id: sub.id ?? `s${si}`,
+  title: sub.title == null ? '' : String(sub.title),
+  questions: list(sub.questions).map((q, qi) => {
+    const n = { ...q, id: q.id ?? `${sub.id ?? `s${si}`}-q${qi}`, type: q.type || 'subjective' };
+    if (n.text != null && typeof n.text !== 'string') n.text = String(n.text);
+    ['subQuestions', 'blanks', 'items'].forEach(k => { if (n[k] != null) n[k] = list(n[k]).map((x, xi) => ({ ...x, id: x.id ?? `${n.id}-${k}${xi}` })); });
+    if (n.pairs != null) n.pairs = list(n.pairs);
     if (q.type === 'subjective' && !q.subQuestions) n.subQuestions = [{ id: uid(), text: q.questionText || '', lines: q.lines || 3 }];
     if (q.type === 'match' && !q.pairs) n.pairs = [];
     if (q.type === 'fillBlanks') {
@@ -202,19 +208,40 @@ export const normalizeSubjects = (subjects) => (subjects || []).map(sub => ({
       }
     }
     if (['mcq', 'trueFalse', 'whoSaid', 'wordList'].includes(q.type) && !n.items) n.items = [];
-    if (q.type === 'table' && !n.rows) n.rows = [['']];
+    if (q.type === 'table') n.rows = Array.isArray(q.rows) && q.rows.length ? q.rows.map(r => (Array.isArray(r) ? r : Array.isArray(r?.cells) ? r.cells : [''])) : [['']];
     return n;
   }),
 }));
 
 export const normalizeHeader = (header) => {
-  const h = { ...DEFAULT_HEADER, ...(header || {}) };
+  // Every field must be text: old or damaged papers can have missing or empty (null) values.
+  const raw = header && typeof header === 'object' ? header : {};
+  const h = {};
+  for (const k of Object.keys(DEFAULT_HEADER)) h[k] = raw[k] == null || raw[k] === '' ? (k === 'examName' || k === 'className' ? DEFAULT_HEADER[k] : String(raw[k] ?? DEFAULT_HEADER[k])) : String(raw[k]);
+  for (const k of Object.keys(raw)) if (!(k in h)) h[k] = raw[k];
   // Very old papers stored the year inside the exam name.
   if (h.examName.includes('١٤٤٦هـ')) {
     h.examName = h.examName.replace('١٤٤٦هـ', '').trim();
     h.hijriYear = '1446';
   }
   return h;
+};
+
+// The database cannot store a list inside a list (table rows), so rows are saved as
+// { cells: [...] } and turned back into plain lists when read.
+export const toCloud = (v) => {
+  if (Array.isArray(v)) return v.map(x => (Array.isArray(x) ? { cells: x.map(toCloud) } : toCloud(x)));
+  if (v && typeof v === 'object' && v.constructor === Object) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toCloud(x)]));
+  return v;
+};
+export const fromCloud = (v) => {
+  if (Array.isArray(v)) return v.map(fromCloud);
+  if (v && typeof v === 'object' && v.constructor === Object) {
+    const keys = Object.keys(v);
+    if (keys.length === 1 && keys[0] === 'cells' && Array.isArray(v.cells)) return v.cells.map(fromCloud);
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fromCloud(x)]));
+  }
+  return v;
 };
 
 // Papers saved before layout options existed get the defaults (full cover page, as before).

@@ -6,9 +6,10 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import Editor from './components/Editor'
 import PaperPreview from './components/PaperPreview'
 import Icon from './components/Icon'
+import ErrorBoundary from './components/ErrorBoundary'
 import { Wordmark, BrandMark } from './components/Brand'
 import { BRAND, BUILD_TIME } from './lib/brand'
-import { DEFAULT_SCHOOL_INFO, uid, LANGUAGES, langOf, defaultsFor, normalizeSubjects, normalizeHeader, normalizeLayout, paperSizeKb, cloneWithNewIds, pickPrint, answerStats, grandTotal } from './lib/paper'
+import { DEFAULT_SCHOOL_INFO, uid, LANGUAGES, langOf, defaultsFor, normalizeSubjects, normalizeHeader, normalizeLayout, paperSizeKb, cloneWithNewIds, pickPrint, answerStats, grandTotal, toCloud, fromCloud } from './lib/paper'
 import { downloadPdf, resizeImage } from './lib/pdf'
 import { WHATS_NEW, LATEST_VERSION } from './lib/whatsNew'
 import { saveDraft, loadDraft, clearDraft, addVersion, listVersions } from './lib/local'
@@ -257,7 +258,7 @@ function App() {
     if (DEMO) {
       setUser({ uid: 'demo', displayName: 'Demo Teacher', email: 'demo@local' });
       setAppState('dashboard');
-      import('./lib/demoPaper').then(m => { setSavedPapers([m.default, m.englishPaper]); setPapersLoading(false); });
+      import('./lib/demoPaper').then(m => { setSavedPapers([m.default, m.englishPaper, ...(m.legacyPapers || [])]); setPapersLoading(false); });
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -326,13 +327,13 @@ function App() {
   // ---- user document: school settings, app settings, templates ----
   const userDocWrite = (patch) => {
     if (!user || DEMO) return;
-    setDoc(doc(db, 'users', user.uid), patch, { merge: true }).catch(error => console.error('Error saving user data:', error));
+    setDoc(doc(db, 'users', user.uid), toCloud(patch), { merge: true }).catch(error => console.error('Error saving user data:', error));
   };
   const loadUserDoc = async (userId) => {
     try {
       const snap = await getDoc(doc(db, 'users', userId));
       if (!snap.exists()) return;
-      const d = snap.data();
+      const d = fromCloud(snap.data());
       if (d.schoolSettings) { setSchoolSettings(d.schoolSettings); store.set('schoolSettings', JSON.stringify(d.schoolSettings)); }
       if (Array.isArray(d.templates)) { setTemplates(d.templates); store.set('templates', JSON.stringify(d.templates)); }
       if (d.appSettings) { const s = { ...DEFAULT_APP_SETTINGS, ...d.appSettings }; setAppSettings(s); store.set('appSettings', JSON.stringify(s)); }
@@ -373,7 +374,7 @@ function App() {
         getDocs(query(col, where('members', 'array-contains', userId))).catch(() => null),
       ]);
       const byId = new Map();
-      [own, joined].forEach(snap => snap?.forEach(d => byId.set(d.id, { id: d.id, ...d.data() })));
+      [own, joined].forEach(snap => snap?.forEach(d => byId.set(d.id, fromCloud({ id: d.id, ...d.data() }))));
       const papers = [...byId.values()].sort((a, b) => (b.lastEdited || '').localeCompare(a.lastEdited || ''));
       // Empty the trash of anything older than 30 days.
       const cutoff = Date.now() - TRASH_DAYS * 86400000;
@@ -413,14 +414,14 @@ function App() {
             written = content;
             const snap = await tx.get(ref);
             if (snap.exists()) {
-              const remote = contentOf(snap.data(), user.uid);
+              const remote = contentOf(fromCloud(snap.data()), user.uid);
               const base = safeParse(savedRef.current);
               if (base && JSON.stringify(remote) !== savedRef.current) written = mergePaper(base, content, remote);
             }
-            tx.set(ref, payloadFor(written), { merge: true });
+            tx.set(ref, toCloud(payloadFor(written)), { merge: true });
           });
         } else {
-          const write = setDoc(ref, payloadFor(content), { merge: true });
+          const write = setDoc(ref, toCloud(payloadFor(content)), { merge: true });
           // Offline: Firestore keeps the write on the device and uploads it automatically later.
           if (navigator.onLine) await write; else write.catch(err => console.error(err));
         }
@@ -476,7 +477,7 @@ function App() {
     let first = true;
     return onSnapshot(doc(db, 'papers', currentPaperId), (snap) => {
       if (snap.metadata.hasPendingWrites || !snap.exists()) return;
-      const d = snap.data();
+      const d = fromCloud(snap.data());
       setPaperMeta(metaOf(d));
       const remote = contentOf(d, user.uid);
       const remoteJson = JSON.stringify(remote);
@@ -671,7 +672,7 @@ function App() {
     try {
       const paperId = await joinPaper(user, r);
       const snap = await getDoc(doc(db, 'papers', paperId));
-      const paper = { id: paperId, ...snap.data() };
+      const paper = fromCloud({ id: paperId, ...snap.data() });
       setSavedPapers(list => [paper, ...list.filter(p => p.id !== paperId)]);
       openSavedPaper(paper);
       showToast(`You joined “${r.title}”`);
@@ -956,6 +957,7 @@ function App() {
 
       {/* ---------------- EDITOR / PREVIEW ---------------- */}
       {inPaper && (
+        <ErrorBoundary key={currentPaperId} onBack={() => { store.set('session', 'null'); setAppState('dashboard'); window.scrollTo(0, 0); }}>
         <main className={`p-3 sm:p-5 print:p-0 ${split ? 'max-w-[1600px] mx-auto grid grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] gap-5 items-start' : ''}`}>
           {appState === 'preview' ? (
             <>
@@ -992,6 +994,7 @@ function App() {
             </>
           )}
         </main>
+        </ErrorBoundary>
       )}
 
       {/* ---------------- BOTTOM NAV (phones) ---------------- */}
