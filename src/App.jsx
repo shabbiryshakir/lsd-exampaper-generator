@@ -339,8 +339,8 @@ function App() {
   const [loggingIn, setLoggingIn] = useState(false);
   const handleLogin = async () => {
     setLoginError(''); setLoggingIn(true);
-    // Installed apps and phones: a full-page sign-in (pop-ups get lost there). Computers: a pop-up.
-    const fullPage = isStandalone() || /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+    // Installed app: a full-page sign-in (pop-ups get lost there). Browser tabs: a pop-up.
+    const fullPage = isStandalone();
     if (fullPage) { try { await signInWithRedirect(auth, googleProvider); } catch (error) { console.error(error); setLoginError(signInMessage(error)); setLoggingIn(false); } return; }
     try { await signInWithPopup(auth, googleProvider); }
     catch (error) {

@@ -9,7 +9,9 @@ const firebaseConfig = {
   // Sign-in is handed over on the app's own address when it is hosted on github.io (the helper
   // pages live at shabbiryshakir.github.io/__/auth/). Phones block the hand-over between different
   // sites, which left installed apps stuck on the sign-in page.
-  authDomain: typeof window !== "undefined" && window.location.hostname === "shabbiryshakir.github.io"
+  // Only the installed app needs this; browser tabs keep the usual pop-up sign-in.
+  authDomain: typeof window !== "undefined" && window.location.hostname === "shabbiryshakir.github.io" &&
+    (window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true)
     ? "shabbiryshakir.github.io"
     : "imani-paper-generator.firebaseapp.com",
   projectId: "imani-paper-generator",
