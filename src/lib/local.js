@@ -1,10 +1,11 @@
 // On-device storage (IndexedDB): auto-saved drafts and version history.
-// Nothing here needs the internet, and it survives app restarts.
+// Nothing here needs the internet, and it survives the app being closed.
 import { get, set, del } from 'idb-keyval';
 
 const MAX_VERSIONS = 20;
 
-// The draft is the latest state of the paper being edited, written every couple of seconds.
+// The draft is the latest state of the paper being edited, written a second after every change.
+// { paperId, data: {header, subjects, layout}, unsynced, isNew, meta }
 export const saveDraft = (draft) => set('draft', { ...draft, savedAt: Date.now() }).catch(() => {});
 export const loadDraft = () => get('draft').catch(() => null);
 export const clearDraft = () => del('draft').catch(() => {});
@@ -24,6 +25,3 @@ export async function addVersion(paperKey, data, minGapMs = 3 * 60 * 1000) {
   } catch { /* storage unavailable: history is a nice-to-have */ }
 }
 export const listVersions = async (paperKey) => { try { return (await get(`versions:${paperKey}`)) || []; } catch { return []; } };
-export const moveVersions = async (fromKey, toKey) => {
-  try { const v = await get(`versions:${fromKey}`); if (v) { await set(`versions:${toKey}`, v); await del(`versions:${fromKey}`); } } catch { /* ignore */ }
-};

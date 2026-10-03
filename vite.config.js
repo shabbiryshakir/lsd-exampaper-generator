@@ -7,15 +7,15 @@ export default defineConfig(({ command }) => ({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
+      includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
       manifest: {
-        name: 'LSD — Teacher Tools',
-        short_name: 'LSD',
-        description: 'Teacher tools for Lisan ud Dawat: make exam papers, answer keys and more, and print them as A4 PDFs.',
-        theme_color: '#4338ca',
-        background_color: '#f3f4f6',
+        name: 'Qalam — Exam Papers',
+        short_name: 'Qalam',
+        description: 'Create exam papers and answer keys in Lisan ud Dawat and English, work on them together, and print perfect A4 PDFs.',
+        theme_color: '#18625d',
+        background_color: '#f6f7f5',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
         start_url: '.',
         scope: '.',
         icons: [

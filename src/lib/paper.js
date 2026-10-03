@@ -22,6 +22,7 @@ export const LANGUAGES = {
     firstSubject: 'تعليم القرآن',
     studentFields: ['نام', 'ITS NO', 'ROLL NO'],
     t: { no: 'رقم', subjects: 'المواضيع', marks: 'ماركس', obtained: 'المحصول', total: 'جملة', time: 'Time', speaker: 'القائل', listener: 'المقول له', true: 'صحيح', false: 'غلط', answerKey: 'الجوابات', modelAnswer: 'جواب' },
+    keyNote: 'الجواب حسب فهم الطالب',
     defaults: {
       subjective: 'نيححسس سؤالو نا جوابو لكهو :',
       fillBlanks: 'خالي جككه نسس اهنا صحيح جواب سي ثثوري كرو :',
@@ -43,6 +44,7 @@ export const LANGUAGES = {
     firstSubject: 'English',
     studentFields: ['Name', 'ITS No', 'Roll No'],
     t: { no: 'No.', subjects: 'Subject', marks: 'Marks', obtained: 'Obtained', total: 'Total', time: 'Time', speaker: 'Speaker', listener: 'Spoken to', true: 'True', false: 'False', answerKey: 'Answer Key', modelAnswer: 'Answer' },
+    keyNote: 'Answers may vary — award marks for correct points.',
     defaults: {
       subjective: 'Answer the following questions:',
       fillBlanks: 'Fill in the blanks with the correct word:',
@@ -78,7 +80,23 @@ export const DEFAULT_LAYOUT = {
   subNumbering: 'abjad',     // 'abjad' => الف) ب) / a) b) , 'numeric' => ١) ٢) / 1) 2)
   textSize: 'normal',        // 'normal' | 'small' | 'large'
   studentFields: ['نام', 'ITS NO', 'ROLL NO'],  // boxes for the student to fill in; teachers can rename/add/remove
+  keyQuestions: true,        // answer key repeats each question's wording
+  keyAll: true,              // answer key lists every question; written ones without a model answer get the marking note
+  keyNote: '',               // marking note for answers that vary ('' = the language default)
 };
+
+// Settings that only change how a paper is printed. On a paper shared between teachers each
+// teacher keeps their own, so one school's cover page or border never changes another's.
+export const PRINT_KEYS = ['coverStyle', 'pageBorder', 'showFooter', 'textSize', 'studentFields'];
+export const pickPrint = (layout) => Object.fromEntries(PRINT_KEYS.filter(k => layout?.[k] !== undefined).map(k => [k, layout[k]]));
+
+// Ready-made combinations of the print settings, so teachers don't need to set each one.
+export const PAGE_PRESETS = [
+  { id: 'exam', icon: 'BookOpen', label: 'Full exam', hint: 'Cover page with marks table', patch: { coverStyle: 'full', pageBorder: true, showFooter: true } },
+  { id: 'test', icon: 'FileText', label: 'Class test', hint: 'Name strip, no cover page', patch: { coverStyle: 'compact', pageBorder: true, showFooter: true } },
+  { id: 'simple', icon: 'File', label: 'Simple sheet', hint: 'Just the questions', patch: { coverStyle: 'none', pageBorder: false, showFooter: false } },
+];
+export const presetOf = (layout) => PAGE_PRESETS.find(p => Object.entries(p.patch).every(([k, v]) => layout?.[k] === v))?.id || null;
 
 // Default header/layout for a new paper in a given language.
 export const defaultsFor = (language = 'lsd', base = {}) => {
@@ -147,9 +165,9 @@ export const newQuestion = (type, language = 'lsd') => {
     case 'trueFalse': return { ...base, tfStyle: 'box', items: [{ id: uid(), text: '', answer: null }] };
     case 'whoSaid': return { ...base, saidLabels: { speaker: L.t.speaker, listener: L.t.listener }, items: [{ id: uid(), text: '', options: [], answer: '' }] };
     case 'wordList': return { ...base, columns: 2, items: [{ id: uid(), text: '', answer: '' }] };
-    case 'textBlock': return { ...base, content: '', lines: 0 };
-    case 'table': return { ...base, headerRow: true, rows: [['', '', ''], ['', '', ''], ['', '', '']] };
-    case 'image': return { ...base, src: '', width: 60, caption: '', lines: 0 };
+    case 'textBlock': return { ...base, content: '', lines: 0, answer: '' };
+    case 'table': return { ...base, headerRow: true, rows: [['', '', ''], ['', '', ''], ['', '', '']], answer: '' };
+    case 'image': return { ...base, src: '', width: 60, caption: '', lines: 0, answer: '' };
     default: return base;
   }
 };
@@ -219,6 +237,22 @@ export const hasAnswers = (q) => {
     case 'mcq': return (q.items || []).some(i => i.answer != null);
     case 'trueFalse': return (q.items || []).some(i => i.answer != null);
     case 'whoSaid': case 'wordList': return (q.items || []).some(i => String(i.answer || '').trim());
-    default: return false;
+    default: return !!(q.answer || '').trim();
   }
+};
+
+// Does the student write anything for this question? (A plain reading passage needs no answer.)
+export const expectsAnswer = (q) => {
+  switch (q.type) {
+    case 'textBlock': case 'image': return (parseInt(q.lines) || 0) > 0 || !!(q.answer || '').trim();
+    case 'table': return (q.rows || []).some(r => r.some(c => !(c || '').trim())) || !!(q.answer || '').trim();
+    default: return true;
+  }
+};
+
+// Answer-key coverage, for the "x of y answered" hint.
+export const answerStats = (subjects) => {
+  let total = 0, done = 0;
+  (subjects || []).forEach(s => (s.questions || []).forEach(q => { if (expectsAnswer(q)) { total++; if (hasAnswers(q)) done++; } }));
+  return { total, done };
 };

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useEffect, useRef, useState, forwardRef } from 'react'
-import { subjectTotal, grandTotal, subLabel, questionLabel, parseMarks, questionNumbers, langOf, optionLetter, hasAnswers } from '../lib/paper'
+import { subjectTotal, grandTotal, subLabel, questionLabel, parseMarks, questionNumbers, langOf, optionLetter, hasAnswers, expectsAnswer } from '../lib/paper'
 
 // Small safety margin (px) left empty at the bottom of each page.
 const PAGE_SAFETY = 4;
@@ -265,33 +265,69 @@ export function buildBlocks(subjects, layout) {
   return out;
 }
 
-// Answer key: one compact line per answer, only for questions that have answers.
+// Answer key. Every question is listed (unless the teacher turns that off): objective answers
+// in one compact line each, written answers with the model answer or marking points, and
+// written questions without one get the marking note, so the key is complete for checking.
 export function buildKeyBlocks(subjects, layout) {
   const L = langOf(layout);
   const lang = layout.language;
+  const all = layout.keyAll !== false;
+  const withQuestions = layout.keyQuestions !== false;
+  const note = (layout.keyNote || '').trim() || L.keyNote;
   const out = [];
-  const line = (key, subject, label, content) => out.push({
+  const line = (key, subject, label, content, prompt) => out.push({
     key, subject,
-    node: <div className="flex gap-2 px-3 py-0.5 whitespace-pre-wrap"><span className="font-bold whitespace-nowrap">{label}</span><span>{content}</span></div>,
+    node: (
+      <div className="flex gap-2 px-3 py-0.5 whitespace-pre-wrap">
+        {label && <span className="font-bold whitespace-nowrap">{label}</span>}
+        <span className="min-w-0">
+          {prompt && <span className="block text-[0.85em] text-gray-600">{prompt}</span>}
+          {content}
+        </span>
+      </div>
+    ),
   });
+  const ans = (t) => <span className="font-bold">{t}</span>;
+  const vary = <span className="italic text-gray-600 text-[0.9em]">{note}</span>;
+  // "The sun rises in the *." -> the sentence with the answer written into the gap.
+  const filled = (text, answer) => {
+    const parts = (text || '').split('*');
+    const answers = parts.length > 2 ? (answer || '').split(/\s*[/،,]\s*/) : [answer];
+    return parts.map((p, j) => <span key={j}>{p}{j < parts.length - 1 && <span className="font-bold underline underline-offset-4">{answers[j] ?? answers[0] ?? ''}</span>}</span>);
+  };
+
   (subjects || []).forEach((sub) => {
-    const questions = sub.questions || [];
-    if (!questions.some(hasAnswers)) return;
+    // Written questions are always listed (with the note if no model answer); objective ones once answered.
+    const written = (q) => ['subjective', 'textBlock', 'table', 'image'].includes(q.type);
+    const questions = (sub.questions || []).filter(q => hasAnswers(q) || (all && written(q) && expectsAnswer(q)));
+    if (questions.length === 0) return;
     out.push(subjectHeader(sub, L, 'k'));
-    const numbers = questionNumbers(questions);
-    questions.forEach((q, qIndex) => {
-      if (!hasAnswers(q)) return;
+    const numbers = questionNumbers(sub.questions);
+    questions.forEach((q) => {
       const k = `k-${q.id}`;
+      const T = sub.title;
       const firstBlock = out.length;
-      const head = questionHeader({ ...q, text: '' }, numbers[qIndex] ?? 0, layout, L, k, sub.title);
+      const num = numbers[(sub.questions || []).indexOf(q)];
+      const head = questionHeader(withQuestions ? q : { ...q, text: '' }, num ?? null, layout, L, k, T);
       if (head) out.push(head);
-      if (q.type === 'subjective') (q.subQuestions || []).forEach((sq, i) => (sq.answer || '').trim() && line(`${k}-${sq.id}`, sub.title, subLabel(i, layout.subNumbering, lang), sq.answer));
-      if (q.type === 'fillBlanks') (q.blanks || []).forEach((b, i) => (b.answer || '').trim() && line(`${k}-${b.id}`, sub.title, subLabel(i, 'numeric', lang), b.answer));
-      if (q.type === 'match') (q.pairs || []).forEach((p, i) => line(`${k}-${i}`, sub.title, `${L.num(i + 1)}.`, `${p.right}  ←→  ${p.left}`));
-      if (q.type === 'mcq') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, sub.title, subLabel(i, layout.subNumbering, lang), `${optionLetter(it.answer, lang)} ${(it.options || [])[it.answer] || ''}`));
-      if (q.type === 'trueFalse') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, sub.title, subLabel(i, 'numeric', lang), it.answer ? `✓ ${L.t.true}` : `✗ ${L.t.false}`));
-      if (q.type === 'whoSaid' || q.type === 'wordList') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, sub.title, subLabel(i, 'numeric', lang), q.type === 'wordList' ? `${it.text} — ${it.answer}` : it.answer));
-      out.push({ key: `${k}-gap`, subject: sub.title, node: <div className="h-2" /> });
+      if (q.type === 'subjective') (q.subQuestions || []).forEach((sq, i) => {
+        const a = (sq.answer || '').trim();
+        if (a || all) line(`${k}-${sq.id}`, T, subLabel(i, layout.subNumbering, lang), a ? ans(a) : vary, withQuestions && (sq.text || '').trim() ? sq.text : null);
+      });
+      if (q.type === 'fillBlanks') (q.blanks || []).forEach((b, i) => {
+        const a = (b.answer || '').trim();
+        if (a) line(`${k}-${b.id}`, T, subLabel(i, 'numeric', lang), withQuestions && (b.text || '').includes('*') ? filled(b.text, a) : ans(a));
+      });
+      if (q.type === 'match') (q.pairs || []).forEach((p, i) => line(`${k}-${i}`, T, `${L.num(i + 1)}.`, <>{p.right}<span className="mx-3 font-sans">⟷</span>{ans(p.left)}</>));
+      if (q.type === 'mcq') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, T, subLabel(i, layout.subNumbering, lang), ans(`${optionLetter(it.answer, lang)} ${(it.options || [])[it.answer] || ''}`), withQuestions && (it.text || '').trim() ? it.text : null));
+      if (q.type === 'trueFalse') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), ans(it.answer ? `✓ ${L.t.true}` : `✗ ${L.t.false}`), withQuestions && (it.text || '').trim() ? it.text : null));
+      if (q.type === 'whoSaid') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), ans(it.answer), withQuestions && (it.text || '').trim() ? (lang === 'en' ? `“${it.text}”` : `« ${it.text} »`) : null));
+      if (q.type === 'wordList') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), <>{it.text} — {ans(it.answer)}</>));
+      if (['textBlock', 'table', 'image'].includes(q.type)) {
+        const a = (q.answer || '').trim();
+        line(`${k}-a`, T, null, a ? ans(a) : vary);
+      }
+      out.push({ key: `${k}-gap`, subject: T, node: <div className="h-2" /> });
       for (let i = firstBlock; i < out.length; i++) out[i].qid = q.id;
     });
   });
@@ -440,7 +476,7 @@ const Sheet = forwardRef(({ layout, className = '', children }, ref) => {
 // ---------------------------------------------------------------------------
 // PREVIEW  (mode: 'paper' | 'key')
 // ---------------------------------------------------------------------------
-export default function PaperPreview({ header, subjects, school, layout, pagesRef, focusQuestionId, onEditQuestion, onPageCount, mode = 'paper' }) {
+export default function PaperPreview({ header, subjects, school, layout, pagesRef, focusQuestionId, onEditQuestion, onPageCount, mode = 'paper', fitWidth, scrollRef }) {
   const L = langOf(layout);
   const isKey = mode === 'key';
   const blocks = isKey ? buildKeyBlocks(subjects, layout) : buildBlocks(subjects, layout);
@@ -449,7 +485,7 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
   const restTplRef = useRef(null);
   const [measure, setMeasure] = useState(null);
   const [fontsReady, setFontsReady] = useState(false);
-  const fitZoom = () => Math.min(1, (window.innerWidth - 16) / (210 * 96 / 25.4));
+  const fitZoom = () => Math.min(1, ((fitWidth || window.innerWidth) - (fitWidth ? 40 : 16)) / (210 * 96 / 25.4));
   const [zoom, setZoom] = useState(fitZoom);
   const [imgTick, setImgTick] = useState(0); // re-measure once pictures finish loading
   const scrolledFor = useRef(null);
@@ -465,9 +501,10 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
   // Fit the A4 pages to narrow phone screens (print always resets zoom to 1).
   useEffect(() => {
     const onResize = () => setZoom(fitZoom());
+    onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, []);
+  }, [fitWidth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signature = JSON.stringify([mode, subjects, layout, header, !!school?.logo, school?.nameAr, fontsReady, imgTick]);
   useLayoutEffect(() => {
@@ -496,8 +533,11 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
     scrolledFor.current = focusQuestionId;
     const el = pagesRef?.current?.querySelector(`[data-qid="${focusQuestionId}"]`);
     // Manual scroll: scrollIntoView mis-computes positions inside CSS-zoomed pages on some browsers.
-    if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 120) });
-  }, [settled, focusQuestionId, pagesRef]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!el) return;
+    const box = scrollRef?.current;
+    if (box) box.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 40), behavior: 'smooth' });
+    else window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 120) });
+  }, [settled, focusQuestionId, pagesRef, scrollRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const keyTitle = isKey ? `${L.t.answerKey} — ${header.examName} ${yearText(header, L)}` : null;
   const chrome = (isFirst) => compact && isFirst
@@ -522,9 +562,9 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
       <div className="paper-zoom" style={{ zoom }}>
         <div className="paper-pages" ref={pagesRef}>
           {!pages ? (
-            <div className="p-10 text-gray-500 font-sans">Laying out pages…</div>
+            <div className="p-10 text-slate-500 font-sans">Laying out pages…</div>
           ) : isKey && blocks.length === 0 ? (
-            <div className="max-w-md mx-4 p-6 bg-white rounded-2xl text-center text-gray-600 font-sans">No answers yet. In the editor, fill in the green <b>Answer</b> boxes (or tap the correct option) and the answer key appears here.</div>
+            <div className="max-w-md mx-4 p-6 bg-white rounded-2xl text-center text-slate-600 font-sans">Nothing to show yet. Add questions in the editor, then fill in the yellow <b>Answer</b> boxes (or tap the correct option).</div>
           ) : (
             <>
               {cover && (
@@ -538,7 +578,7 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
                   {chrome(i === 0)}
                   <div className="sheet-content">
                     {pageBlocks.map(b => (
-                      <div key={b.key} className={`paper-block ${b.qid ? 'cursor-pointer hover:bg-yellow-50' : ''}`} data-qid={b.qid} onClick={b.qid && onEditQuestion ? () => onEditQuestion(b.qid) : undefined}>{b.node}</div>
+                      <div key={b.key} className={`paper-block ${b.qid ? 'cursor-pointer hover:bg-amber-50' : ''}`} data-qid={b.qid} onClick={b.qid && onEditQuestion ? () => onEditQuestion(b.qid) : undefined}>{b.node}</div>
                     ))}
                   </div>
                   {footer(i + 1 + (cover ? 1 : 0), pageBlocks)}

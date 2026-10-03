@@ -11,8 +11,8 @@ export const editorContextFor = (layout, answers) => {
 };
 const useUI = () => useContext(EditorContext);
 
-const baseInput = 'w-full border border-gray-300 px-3 py-2 rounded-xl text-xl leading-relaxed bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none';
-const answerInput = 'w-full border border-emerald-300 bg-emerald-50 px-3 py-2 rounded-xl text-lg focus:border-emerald-500 focus:outline-none placeholder:text-emerald-600/60';
+const baseInput = 'w-full border border-slate-300 px-3 py-2 rounded-xl text-xl leading-relaxed bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none';
+const answerInput = 'w-full border border-amber-300 bg-amber-50 px-3 py-2 rounded-xl text-lg focus:border-amber-500 focus:outline-none placeholder:text-amber-600/60';
 
 // Textarea that grows with its content, so long lines are never hidden.
 export function AutoText({ value, onChange, placeholder, className = '', minRows = 1, answer = false }) {
@@ -36,33 +36,33 @@ export const Stepper = ({ value, onChange, step = 1, min = 0, decimals = false, 
   const parse = (v) => (decimals ? parseFloat(v) : parseInt(v)) || 0;
   const fix = (n) => Math.max(min, Math.round(n * 100) / 100);
   return (
-    <div className={`flex border border-gray-300 rounded-xl overflow-hidden bg-white w-32 h-11 ${className}`} dir="ltr">
-      <button type="button" aria-label="Less" onClick={() => onChange(fix(parse(value) - step))} className="w-10 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xl font-bold border-r border-gray-300">−</button>
+    <div className={`flex border border-slate-300 rounded-xl overflow-hidden bg-white w-32 h-11 ${className}`} dir="ltr">
+      <button type="button" aria-label="Less" onClick={() => onChange(fix(parse(value) - step))} className="w-10 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xl font-bold border-r border-slate-300">−</button>
       <input type="number" inputMode="decimal" step={decimals ? 0.5 : 1} min={min} value={value ?? 0} onChange={(e) => onChange(e.target.value)} onBlur={(e) => onChange(fix(parse(e.target.value)))} className="w-full min-w-0 text-center p-1.5 font-sans text-base outline-none" />
-      <button type="button" aria-label="More" onClick={() => onChange(fix(parse(value) + step))} className="w-10 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xl font-bold border-l border-gray-300">+</button>
+      <button type="button" aria-label="More" onClick={() => onChange(fix(parse(value) + step))} className="w-10 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xl font-bold border-l border-slate-300">+</button>
     </div>
   );
 };
 
 const RemoveBtn = ({ onClick, title = 'Remove' }) => (
-  <button type="button" onClick={onClick} aria-label={title} title={title} className="shrink-0 w-10 h-10 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center"><Icon name="X" size={20} /></button>
+  <button type="button" onClick={onClick} aria-label={title} title={title} className="shrink-0 w-10 h-10 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center"><Icon name="X" size={20} /></button>
 );
 
 const AddBtn = ({ onClick, children }) => (
-  <button type="button" onClick={onClick} className="mt-3 text-sm bg-white text-indigo-700 px-4 py-2.5 rounded-xl font-bold border border-indigo-200 hover:bg-indigo-50 inline-flex items-center gap-1.5"><Icon name="Plus" size={16} />{children}</button>
+  <button type="button" onClick={onClick} className="mt-3 text-sm bg-white text-brand-700 px-4 py-2.5 rounded-xl font-bold border border-brand-200 hover:bg-brand-50 inline-flex items-center gap-1.5"><Icon name="Plus" size={16} />{children}</button>
 );
 
-const Hint = ({ children }) => <p className="text-sm text-slate-600 bg-slate-100 rounded-xl px-3 py-2 mb-3">{children}</p>;
+const Hint = ({ children }) => <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 mb-3">{children}</p>;
 
 export const Toggle = ({ checked, onChange, children }) => (
-  <label className="inline-flex items-center gap-3 text-sm font-bold text-gray-700 cursor-pointer select-none">
-    <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} className="w-5 h-5 accent-indigo-600" />{children}
+  <label className="inline-flex items-center gap-3 text-sm font-bold text-slate-700 cursor-pointer select-none">
+    <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} className="w-5 h-5 accent-brand-600" />{children}
   </label>
 );
 
 const Label = ({ i, style }) => {
   const UI = useUI();
-  return <span className={`font-bold ${UI.font} text-gray-400 text-lg pt-2 w-10 text-center shrink-0`}>{subLabel(i, style, UI.lang)}</span>;
+  return <span className={`font-bold ${UI.font} text-slate-400 text-lg pt-2 w-10 text-center shrink-0`}>{subLabel(i, style, UI.lang)}</span>;
 };
 
 // Generic editor for a list of { id, text } items (used by MCQ, True/False, Who said, Word list).
@@ -72,7 +72,7 @@ function ItemList({ items, onChange, placeholder, numbering = 'numeric', renderE
   return (
     <div className="space-y-2" dir={UI.dir}>
       {items.map((it, i) => (
-        <div key={it.id} className="bg-white p-2 border border-gray-200 rounded-xl">
+        <div key={it.id} className="bg-white p-2 border border-slate-200 rounded-xl">
           <div className="flex gap-1 items-start">
             <Label i={i} style={numbering} />
             {multiline
@@ -96,29 +96,29 @@ function OptionsEditor({ options, onChange, optional, answer, onAnswer }) {
     <div>
       <div className="flex flex-wrap gap-2">
         {opts.map((o, k) => (
-          <div key={k} className={`flex items-center gap-1 border rounded-xl ps-1 ${answer === k ? 'bg-emerald-50 border-emerald-400' : 'bg-gray-50 border-gray-200'}`}>
+          <div key={k} className={`flex items-center gap-1 border rounded-xl ps-1 ${answer === k ? 'bg-amber-50 border-amber-400' : 'bg-slate-50 border-slate-200'}`}>
             {onAnswer && (
               <button type="button" onClick={() => onAnswer(answer === k ? null : k)} aria-label="Mark as correct answer" title="Mark as correct answer"
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${answer === k ? 'text-emerald-600' : 'text-gray-300 hover:text-emerald-500'}`}>
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${answer === k ? 'text-amber-600' : 'text-slate-300 hover:text-amber-500'}`}>
                 <Icon name="CircleCheckBig" size={20} />
               </button>
             )}
             <input type="text" value={o} onChange={(e) => onChange(opts.map((x, j) => (j === k ? e.target.value : x)))} placeholder={`Option ${k + 1}`} className={`w-32 bg-transparent p-2 ${UI.font} text-xl outline-none`} dir={UI.dir} />
-            <button type="button" aria-label="Remove option" onClick={() => onChange(opts.filter((_, j) => j !== k))} className="px-1.5 text-gray-400 hover:text-red-600"><Icon name="X" size={16} /></button>
+            <button type="button" aria-label="Remove option" onClick={() => onChange(opts.filter((_, j) => j !== k))} className="px-1.5 text-slate-400 hover:text-red-600"><Icon name="X" size={16} /></button>
           </div>
         ))}
-        <button type="button" onClick={() => onChange([...opts, ''])} className="text-sm text-indigo-700 font-bold px-3 py-1.5 rounded-xl border border-dashed border-indigo-300 hover:bg-indigo-50">+ Option</button>
+        <button type="button" onClick={() => onChange([...opts, ''])} className="text-sm text-brand-700 font-bold px-3 py-1.5 rounded-xl border border-dashed border-brand-300 hover:bg-brand-50">+ Option</button>
       </div>
-      {onAnswer && opts.length > 0 && <p className="text-xs text-emerald-700 mt-1">Tap the ✓ next to the correct option for the answer key.</p>}
-      {optional && opts.length === 0 && <p className="text-xs text-gray-400 mt-1">No options → answer lines are printed instead.</p>}
+      {onAnswer && opts.length > 0 && <p className="text-xs text-amber-700 mt-1">Tap the ✓ next to the correct option for the answer key.</p>}
+      {optional && opts.length === 0 && <p className="text-xs text-slate-400 mt-1">No options → answer lines are printed instead.</p>}
     </div>
   );
 }
 
 const Segmented = ({ value, onChange, options }) => (
-  <div className="inline-flex bg-gray-100 rounded-xl p-1 gap-1 flex-wrap">
+  <div className="inline-flex bg-slate-100 rounded-xl p-1 gap-1 flex-wrap">
     {options.map(o => (
-      <button key={o.value} type="button" onClick={() => onChange(o.value)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${value === o.value ? 'bg-white shadow text-indigo-700' : 'text-gray-500'}`}>{o.label}</button>
+      <button key={o.value} type="button" onClick={() => onChange(o.value)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${value === o.value ? 'bg-white shadow text-brand-700' : 'text-slate-500'}`}>{o.label}</button>
     ))}
   </div>
 );
@@ -126,48 +126,49 @@ const Segmented = ({ value, onChange, options }) => (
 export default function QuestionEditor({ q, onChange, layout }) {
   const UI = useUI();
   const set = (field, value) => onChange({ ...q, [field]: value });
+  const settingsOn = q.newPage || q.hideNumber || q.hideMarks;
   const [more, setMore] = useState(false);
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3 mb-3">
         <div className="flex-1">
-          <label className="block mb-1 text-sm font-bold text-gray-600">Question / Instruction</label>
+          <label className="block mb-1 text-sm font-bold text-slate-600">Question / Instruction</label>
           <AutoText value={q.text || ''} onChange={(v) => set('text', v)} placeholder={UI.lang === 'en' ? 'Question…' : 'سؤال…'} />
         </div>
         <div>
-          <label className="block mb-1 text-sm font-bold text-gray-600">Marks</label>
+          <label className="block mb-1 text-sm font-bold text-slate-600">Marks</label>
           <Stepper value={q.marks} onChange={(v) => set('marks', v)} step={0.5} decimals />
         </div>
       </div>
 
-      <button type="button" onClick={() => setMore(!more)} className="text-sm text-gray-500 font-bold mb-3 inline-flex items-center gap-1"><Icon name={more ? 'ChevronUp' : 'ChevronDown'} size={16} /> More options</button>
+      <button type="button" onClick={() => setMore(!more)} className="text-sm text-slate-500 font-bold mb-3 inline-flex items-center gap-1"><Icon name={more ? 'ChevronUp' : 'ChevronDown'} size={16} /> More options{settingsOn && !more ? ' (on)' : ''}</button>
       {more && (
-        <div className="flex flex-col gap-3 mb-4 bg-white border border-gray-200 rounded-xl p-3">
+        <div className="flex flex-col gap-3 mb-4 bg-white border border-slate-200 rounded-xl p-3">
           <Toggle checked={q.newPage} onChange={(v) => set('newPage', v)}>Start this question on a new page</Toggle>
           <Toggle checked={q.hideNumber} onChange={(v) => set('hideNumber', v)}>No question number</Toggle>
           <Toggle checked={q.hideMarks} onChange={(v) => set('hideMarks', v)}>Don't print the marks</Toggle>
         </div>
       )}
 
-      <div className="border-t border-gray-200 pt-3">
+      <div className="border-t border-slate-200 pt-3">
         {q.type === 'subjective' && (
           <>
             <div className="space-y-2" dir={UI.dir}>
               {(q.subQuestions || []).map((sq, i) => {
                 const upd = (patch) => set('subQuestions', q.subQuestions.map(x => (x.id === sq.id ? { ...x, ...patch } : x)));
                 return (
-                  <div key={sq.id} className="bg-white p-2 rounded-xl border border-gray-200">
+                  <div key={sq.id} className="bg-white p-2 rounded-xl border border-slate-200">
                     <div className="flex gap-1 items-start">
                       <Label i={i} style={layout.subNumbering} />
                       <AutoText value={sq.text || ''} onChange={(v) => upd({ text: v })} placeholder="…" />
                       {q.subQuestions.length > 1 && <RemoveBtn onClick={() => set('subQuestions', q.subQuestions.filter(x => x.id !== sq.id))} />}
                     </div>
                     <div className="flex items-center gap-3 mt-2 ps-11" dir="ltr">
-                      <span className="text-sm font-bold text-gray-500">Answer lines</span>
+                      <span className="text-sm font-bold text-slate-500">Answer lines</span>
                       <Stepper value={sq.lines} onChange={(v) => upd({ lines: v })} />
                     </div>
-                    {UI.answers && <div className="mt-2 ps-11"><AutoText answer value={sq.answer || ''} onChange={(v) => upd({ answer: v })} placeholder="Model answer (for the answer key)" /></div>}
+                    {UI.answers && <div className="mt-2 ps-11"><AutoText answer value={sq.answer || ''} onChange={(v) => upd({ answer: v })} placeholder="Model answer or marking points (for the answer key)" minRows={2} /></div>}
                   </div>
                 );
               })}
@@ -178,13 +179,13 @@ export default function QuestionEditor({ q, onChange, layout }) {
 
         {q.type === 'fillBlanks' && (
           <>
-            <Hint>Type a <b>*</b> where the blank line should go. The green box is the answer.</Hint>
+            <Hint>Type a <b>*</b> where the blank line should go. The yellow box is the answer.</Hint>
             <div className="mb-3"><Toggle checked={q.showWordBank !== false} onChange={(v) => set('showWordBank', v)}>Show the answers as a word bank above</Toggle></div>
             <div className="space-y-2" dir={UI.dir}>
               {(q.blanks || []).map((b, i) => {
                 const upd = (patch) => set('blanks', q.blanks.map(x => (x.id === b.id ? { ...x, ...patch } : x)));
                 return (
-                  <div key={b.id} className="bg-white p-2 border border-gray-200 rounded-xl">
+                  <div key={b.id} className="bg-white p-2 border border-slate-200 rounded-xl">
                     <div className="flex gap-1 items-start">
                       <Label i={i} style="numeric" />
                       <AutoText value={b.text || ''} onChange={(v) => upd({ text: v })} placeholder={UI.lang === 'en' ? 'The sun rises in the *.' : 'وَيَطُوفُ عَلَيْهِمْ وِلْدَانٌ *'} />
@@ -204,10 +205,10 @@ export default function QuestionEditor({ q, onChange, layout }) {
             <Hint>Type the correct pairs. The second column is jumbled automatically on the paper.</Hint>
             <div className="space-y-2" dir={UI.dir}>
               {(q.pairs || []).map((p, i) => (
-                <div key={i} className="flex gap-2 items-center bg-white p-2 border border-gray-200 rounded-xl">
-                  <span className="font-bold text-gray-400 text-sm w-5 text-center">{i + 1}</span>
+                <div key={i} className="flex gap-2 items-center bg-white p-2 border border-slate-200 rounded-xl">
+                  <span className="font-bold text-slate-400 text-sm w-5 text-center">{i + 1}</span>
                   <TextInput value={p.right || ''} onChange={(v) => set('pairs', q.pairs.map((x, j) => (j === i ? { ...x, right: v } : x)))} placeholder="Column A" />
-                  <Icon name="ArrowRightLeft" size={16} className="text-gray-300" />
+                  <Icon name="ArrowRightLeft" size={16} className="text-slate-300" />
                   <TextInput value={p.left || ''} onChange={(v) => set('pairs', q.pairs.map((x, j) => (j === i ? { ...x, left: v } : x)))} placeholder="Column B" />
                   <RemoveBtn onClick={() => set('pairs', q.pairs.filter((_, j) => j !== i))} />
                 </div>
@@ -219,7 +220,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
 
         {q.type === 'mcq' && (
           <>
-            <div className="flex items-center gap-3 mb-3 text-sm font-bold text-gray-600">
+            <div className="flex items-center gap-3 mb-3 text-sm font-bold text-slate-600">
               Options <Segmented value={q.optionLayout === 'column' ? 'column' : 'row'} onChange={(v) => set('optionLayout', v)} options={[{ value: 'row', label: 'Side by side' }, { value: 'column', label: 'One per line' }]} />
             </div>
             <ItemList items={q.items || []} onChange={(v) => set('items', v)} numbering={layout.subNumbering} placeholder="Question…" addLabel="Question"
@@ -230,7 +231,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
 
         {q.type === 'trueFalse' && (
           <>
-            <div className="flex items-center gap-3 mb-3 text-sm font-bold text-gray-600 flex-wrap">
+            <div className="flex items-center gap-3 mb-3 text-sm font-bold text-slate-600 flex-wrap">
               On paper <Segmented value={q.tfStyle === 'words' ? 'words' : 'box'} onChange={(v) => set('tfStyle', v)} options={[{ value: 'box', label: 'Empty box' }, { value: 'words', label: `( ${UI.L.t.true} / ${UI.L.t.false} )` }]} />
             </div>
             <ItemList items={q.items || []} onChange={(v) => set('items', v)} placeholder="Statement…" addLabel="Statement"
@@ -239,7 +240,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
                 <div className="flex gap-2">
                   {[[true, 'Check', UI.L.t.true], [false, 'X', UI.L.t.false]].map(([v, ic, label]) => (
                     <button key={label} type="button" onClick={() => patch({ answer: it.answer === v ? null : v })}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border text-sm font-bold ${it.answer === v ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-gray-300 text-gray-600'}`}>
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border text-sm font-bold ${it.answer === v ? 'bg-amber-600 text-white border-amber-600' : 'bg-white border-slate-300 text-slate-600'}`}>
                       <Icon name={ic} size={16} />{label}
                     </button>
                   ))}
@@ -268,7 +269,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
 
         {q.type === 'wordList' && (
           <>
-            <div className="flex items-center gap-3 mb-3 text-sm font-bold text-gray-600">
+            <div className="flex items-center gap-3 mb-3 text-sm font-bold text-slate-600">
               Columns <Segmented value={parseInt(q.columns) || 2} onChange={(v) => set('columns', v)} options={[1, 2, 3, 4].map(c => ({ value: c, label: String(c) }))} />
             </div>
             <ItemList items={q.items || []} onChange={(v) => set('items', v)} placeholder="Word…" addLabel="Word"
@@ -282,13 +283,16 @@ export default function QuestionEditor({ q, onChange, layout }) {
             <Hint>Any text you like — a passage, poem, or your own question format. Line breaks are kept.</Hint>
             <AutoText value={q.content || ''} onChange={(v) => set('content', v)} minRows={4} />
             <div className="flex items-center gap-3 mt-3">
-              <span className="text-sm font-bold text-gray-600">Answer lines after text</span>
+              <span className="text-sm font-bold text-slate-600">Answer lines after text</span>
               <Stepper value={q.lines} onChange={(v) => set('lines', v)} />
             </div>
           </>
         )}
         {q.type === 'table' && <TableEditor q={q} set={set} />}
         {q.type === 'image' && <ImageEditor q={q} set={set} />}
+        {['textBlock', 'table', 'image'].includes(q.type) && UI.answers && (
+          <div className="mt-3"><AutoText answer minRows={2} value={q.answer || ''} onChange={(v) => set('answer', v)} placeholder="Answer or marking points (for the answer key)" /></div>
+        )}
       </div>
     </div>
   );
@@ -317,8 +321,8 @@ function TableEditor({ q, set }) {
             {rows.map((row, r) => (
               <tr key={r}>
                 {Array.from({ length: cols }, (_, c) => (
-                  <td key={c} className="border border-gray-300 p-0">
-                    <input type="text" value={row[c] || ''} onChange={(e) => cell(r, c, e.target.value)} dir={UI.dir} className={`w-32 px-2 py-2 ${UI.font} text-lg outline-none focus:bg-indigo-50 ${q.headerRow && r === 0 ? 'bg-gray-100 font-bold' : 'bg-white'}`} />
+                  <td key={c} className="border border-slate-300 p-0">
+                    <input type="text" value={row[c] || ''} onChange={(e) => cell(r, c, e.target.value)} dir={UI.dir} className={`w-32 px-2 py-2 ${UI.font} text-lg outline-none focus:bg-brand-50 ${q.headerRow && r === 0 ? 'bg-slate-100 font-bold' : 'bg-white'}`} />
                   </td>
                 ))}
               </tr>
@@ -342,7 +346,7 @@ function ImageEditor({ q, set }) {
   };
   return (
     <>
-      <label className="flex items-center justify-center gap-2 border-2 border-dashed border-indigo-300 rounded-xl p-4 text-indigo-700 font-bold cursor-pointer hover:bg-indigo-50">
+      <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-300 rounded-xl p-4 text-brand-700 font-bold cursor-pointer hover:bg-brand-50">
         <input type="file" accept="image/*" onChange={onFile} className="hidden" />
         <Icon name={busy ? 'Loader2' : 'Image'} size={20} />
         {busy ? 'Loading…' : q.src ? 'Change picture' : 'Choose a picture or take a photo'}
@@ -351,16 +355,16 @@ function ImageEditor({ q, set }) {
         <div className="mt-3">
           <img src={q.src} alt="" className="max-h-48 mx-auto border rounded" />
           <div className="flex items-center gap-3 mt-3">
-            <span className="text-sm font-bold text-gray-600 whitespace-nowrap">Size on paper</span>
-            <input type="range" min="20" max="100" step="5" value={q.width || 60} onChange={(e) => set('width', +e.target.value)} className="flex-1 accent-indigo-600" />
+            <span className="text-sm font-bold text-slate-600 whitespace-nowrap">Size on paper</span>
+            <input type="range" min="20" max="100" step="5" value={q.width || 60} onChange={(e) => set('width', +e.target.value)} className="flex-1 accent-brand-600" />
             <span className="text-sm w-12">{q.width || 60}%</span>
           </div>
-          <label className="block mt-3 mb-1 text-sm font-bold text-gray-600">Caption (optional)</label>
+          <label className="block mt-3 mb-1 text-sm font-bold text-slate-600">Caption (optional)</label>
           <AutoText value={q.caption || ''} onChange={(v) => set('caption', v)} />
         </div>
       )}
       <div className="flex items-center gap-3 mt-3">
-        <span className="text-sm font-bold text-gray-600">Answer lines below</span>
+        <span className="text-sm font-bold text-slate-600">Answer lines below</span>
         <Stepper value={q.lines} onChange={(v) => set('lines', v)} />
       </div>
     </>

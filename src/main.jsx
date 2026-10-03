@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import '@fontsource-variable/plus-jakarta-sans/wght.css'
 import '@fontsource/noto-serif/latin-400.css'
 import '@fontsource/noto-serif/latin-700.css'
 import './index.css' /* <--- THIS LINE IS MANDATORY FOR THE UI TO SHOW */

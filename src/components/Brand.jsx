@@ -1,37 +1,42 @@
-// LSD brand: the serif "LSD" wordmark (the paper's English typeface) paired with
-// لسان الدعوة in Kanz al Marjaan (the paper's LSD typeface), so app and papers read as one family.
+import { BRAND } from '../lib/brand'
 
+// Qalam brand: a pen nib resting on a gold writing line, on deep ink-teal.
 export function BrandMark({ size = 44, className = '' }) {
   return (
-    <span className={`inline-flex items-center justify-center rounded-[28%] bg-indigo-700 text-white shadow-sm shrink-0 ${className}`} style={{ width: size, height: size }}>
-      <span className="font-english font-bold tracking-tight" style={{ fontSize: size * 0.36, lineHeight: 1 }}>LSD</span>
-    </span>
+    <svg viewBox="0 0 512 512" width={size} height={size} className={`shrink-0 ${className}`} aria-hidden="true">
+      <defs>
+        <linearGradient id="qalam-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#1f8a80" />
+          <stop offset="1" stopColor="#0a3533" />
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="116" fill="url(#qalam-bg)" />
+      <path d="M256 392 L168 246 Q168 168 256 108 Q344 168 344 246 Z" fill="#fbf7ee" />
+      <path d="M256 392 L256 252" stroke="#145a55" strokeWidth="12" strokeLinecap="round" />
+      <circle cx="256" cy="236" r="20" fill="#145a55" />
+      <rect x="150" y="410" width="212" height="16" rx="8" fill="#f2b544" />
+    </svg>
   );
 }
 
-export function Wordmark({ subtitle, size = 'md' }) {
+export function Wordmark({ subtitle, size = 'md', light = false }) {
   if (size !== 'lg') {
-    // Compact one-line version for the top bar.
     return (
       <span className="inline-flex items-center gap-2.5 min-w-0">
-        <BrandMark size={38} />
+        <BrandMark size={36} />
         <span className="min-w-0 leading-tight">
-          <span className="flex items-baseline gap-2">
-            <span className="font-english font-bold text-gray-900 text-xl tracking-tight">LSD</span>
-            <span className="font-arabic text-indigo-700 text-lg" dir="rtl">لسان الدعوة</span>
-          </span>
-          {subtitle && <span className="block text-xs text-gray-500 font-medium truncate -mt-0.5">{subtitle}</span>}
+          <span className={`block font-extrabold text-xl tracking-tight ${light ? 'text-white' : 'text-slate-900'}`}>{BRAND.name}</span>
+          {subtitle && <span className={`block text-xs font-medium truncate -mt-0.5 ${light ? 'text-brand-100' : 'text-slate-500'}`}>{subtitle}</span>}
         </span>
       </span>
     );
   }
   return (
-    <span className="inline-flex flex-col items-center gap-3 text-center">
-      <BrandMark size={84} />
+    <span className="inline-flex flex-col items-center gap-4 text-center">
+      <BrandMark size={84} className="drop-shadow-lg" />
       <span className="leading-none">
-        <span className="block font-english font-bold text-gray-900 text-4xl tracking-tight">LSD</span>
-        <span className="block font-arabic text-indigo-700 text-2xl mt-2" dir="rtl">لسان الدعوة</span>
-        {subtitle && <span className="block text-gray-500 font-medium text-sm mt-3 uppercase tracking-widest">{subtitle}</span>}
+        <span className={`block font-extrabold text-4xl tracking-tight ${light ? 'text-white' : 'text-slate-900'}`}>{BRAND.name}</span>
+        {subtitle && <span className={`block font-medium text-base mt-2 ${light ? 'text-brand-100' : 'text-slate-500'}`}>{subtitle}</span>}
       </span>
     </span>
   );
