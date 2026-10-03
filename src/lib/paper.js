@@ -22,6 +22,7 @@ export const DEFAULT_LAYOUT = {
   questionLabel: 'sin',      // 'sin' => س١ , 'number' => ١.
   subNumbering: 'abjad',     // 'abjad' => الف) ب) ج) , 'numeric' => ١) ٢) ٣)
   textSize: 'normal',        // 'normal' | 'small' | 'large'
+  studentFields: ['نام', 'ITS NO', 'ROLL NO'],  // boxes for the student to fill in; teachers can rename/add/remove
 };
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -56,7 +57,15 @@ export const QUESTION_TYPES = [
   { type: 'whoSaid', icon: '💬', label: 'Who Said to Whom', hint: 'Quote → القائل / المقول له' },
   { type: 'wordList', icon: '📋', label: 'Word List', hint: 'Meanings, opposites, plurals… in columns' },
   { type: 'textBlock', icon: '📝', label: 'Free Text / Passage', hint: 'Any text, poem or passage + lines' },
+  { type: 'table', icon: '▦', label: 'Table', hint: 'Your own grid — any rows & columns' },
+  { type: 'image', icon: '🖼️', label: 'Picture', hint: 'Diagram, map or picture from your phone' },
 ];
+
+// Numbering skips questions marked "no number", so س١ س٢ stay continuous.
+export const questionNumbers = (questions) => {
+  let n = 0;
+  return (questions || []).map(q => (q.hideNumber ? null : n++));
+};
 
 export const newQuestion = (type) => {
   const base = { id: uid(), type, marks: 0, text: '' };
@@ -69,6 +78,8 @@ export const newQuestion = (type) => {
     case 'whoSaid': return { ...base, text: 'من قال لمن ؟', saidLabels: { speaker: 'القائل', listener: 'المقول له' }, items: [{ id: uid(), text: '', options: [] }] };
     case 'wordList': return { ...base, text: 'اكتب معاني الألفاظ الآتية :', columns: 2, items: [{ id: uid(), text: '' }] };
     case 'textBlock': return { ...base, text: '', content: '', lines: 0 };
+    case 'table': return { ...base, text: '', headerRow: true, rows: [['', '', ''], ['', '', ''], ['', '', '']] };
+    case 'image': return { ...base, text: '', src: '', width: 60, caption: '', lines: 0 };
     default: return base;
   }
 };
@@ -89,6 +100,7 @@ export const normalizeSubjects = (subjects) => (subjects || []).map(sub => ({
       }
     }
     if (['mcq', 'trueFalse', 'whoSaid', 'wordList'].includes(q.type) && !n.items) n.items = [];
+    if (q.type === 'table' && !n.rows) n.rows = [['']];
     return n;
   }),
 }));
@@ -104,4 +116,11 @@ export const normalizeHeader = (header) => {
 };
 
 // Papers saved before layout options existed get the defaults (full cover page, as before).
-export const normalizeLayout = (layout) => ({ ...DEFAULT_LAYOUT, ...(layout || {}) });
+export const normalizeLayout = (layout) => {
+  const l = { ...DEFAULT_LAYOUT, ...(layout || {}) };
+  if (!Array.isArray(l.studentFields)) l.studentFields = DEFAULT_LAYOUT.studentFields;
+  return l;
+};
+
+// Firestore documents are limited to 1 MB; warn before a save would fail.
+export const paperSizeKb = (obj) => Math.round(new Blob([JSON.stringify(obj)]).size / 1024);

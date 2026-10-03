@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
 // NEW: Import Authentication tools
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
@@ -15,7 +15,16 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// Keep a copy of the teacher's papers on the device so the app works offline;
+// changes made offline are uploaded automatically when the connection returns.
+let firestore;
+try {
+  firestore = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch {
+  firestore = getFirestore(app);
+}
+export const db = firestore;
 
 // NEW: Export Auth tools
 export const auth = getAuth(app);

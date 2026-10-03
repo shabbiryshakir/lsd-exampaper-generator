@@ -21,6 +21,8 @@ export default {
         { id: 'q6', type: 'trueFalse', marks: 3, text: 'ضع علامة ✓ أو ✗ :', tfStyle: 'box', items: [1, 2, 3, 4].map(i => ({ id: 't' + i, text: long.slice(0, 35 + i * 8) })) },
         { id: 'q7', type: 'whoSaid', marks: 4, text: 'من قال لمن ؟', saidLabels: { speaker: 'القائل', listener: 'المقول له' }, items: [{ id: 'ws1', text: long.slice(0, 60), options: [] }, { id: 'ws2', text: long.slice(0, 40), options: ['موسى', 'هارون', 'فرعون'] }] },
         { id: 'q8', type: 'textBlock', marks: 5, text: 'اقرأ النص ثم أجب :', content: long + '\n' + long, lines: 12 },
+        { id: 'q10', type: 'table', marks: 3, text: 'جدول ثثورو كرو :', headerRow: true, rows: [['المفرد', 'الجمع', 'الضد'], ['كتاب', '', ''], ['قلم', '', '']] },
+        { id: 'q11', type: 'image', marks: 2, text: 'تصوير ديكهي نسس جواب آثثو :', src: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#ddd"/><circle cx="200" cy="100" r="70" fill="#4338ca"/></svg>'), width: 50, caption: 'شكل', lines: 2 },
         { id: 'q9', type: 'subjective', marks: 10, text: 'مضمون لكهو :', subQuestions: [{ id: 'sq9', text: '', lines: 30 }] },
       ],
     },

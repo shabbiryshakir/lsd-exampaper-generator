@@ -1,32 +1,46 @@
-import { uid, subLabel, toArabicNumerals, QUESTION_TYPES } from '../lib/paper'
+import { useState, useRef, useLayoutEffect } from 'react'
+import { uid, subLabel, toArabicNumerals } from '../lib/paper'
+import { resizeImage } from '../lib/pdf'
 
-const inputCls = 'w-full border border-gray-300 p-2 rounded-md font-arabic text-lg focus:border-indigo-400 focus:outline-none';
+export const inputCls = 'w-full border border-gray-300 px-3 py-2 rounded-lg font-arabic text-xl leading-relaxed bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none';
+
+// Textarea that grows with its content, so long Arabic lines are never hidden.
+export function AutoText({ value, onChange, placeholder, className = '', minRows = 1 }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 2 + 'px';
+  }, [value]);
+  return <textarea ref={ref} rows={minRows} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} dir="rtl" spellCheck={false} autoComplete="off" className={`${inputCls} resize-none overflow-hidden ${className}`} />;
+}
 
 export const Stepper = ({ value, onChange, step = 1, min = 0, decimals = false, className = '' }) => {
   const parse = (v) => (decimals ? parseFloat(v) : parseInt(v)) || 0;
   const fix = (n) => Math.max(min, Math.round(n * 100) / 100);
   return (
-    <div className={`flex border border-gray-300 rounded-md overflow-hidden bg-white w-28 ${className}`}>
-      <button type="button" onClick={() => onChange(fix(parse(value) - step))} className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-r border-gray-300">−</button>
-      <input type="number" inputMode="decimal" step={decimals ? 0.5 : 1} min={min} value={value ?? 0} onChange={(e) => onChange(e.target.value)} onBlur={(e) => onChange(fix(parse(e.target.value)))} className="w-full min-w-0 text-center p-1.5 font-sans text-sm outline-none" />
-      <button type="button" onClick={() => onChange(fix(parse(value) + step))} className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-l border-gray-300">+</button>
+    <div className={`flex border border-gray-300 rounded-lg overflow-hidden bg-white w-32 h-11 ${className}`}>
+      <button type="button" onClick={() => onChange(fix(parse(value) - step))} className="w-10 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xl font-bold border-r border-gray-300">−</button>
+      <input type="number" inputMode="decimal" step={decimals ? 0.5 : 1} min={min} value={value ?? 0} onChange={(e) => onChange(e.target.value)} onBlur={(e) => onChange(fix(parse(e.target.value)))} className="w-full min-w-0 text-center p-1.5 font-sans text-base outline-none" />
+      <button type="button" onClick={() => onChange(fix(parse(value) + step))} className="w-10 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xl font-bold border-l border-gray-300">+</button>
     </div>
   );
 };
 
 const RemoveBtn = ({ onClick, title = 'Remove' }) => (
-  <button type="button" onClick={onClick} title={title} className="shrink-0 w-8 h-8 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-lg">×</button>
+  <button type="button" onClick={onClick} title={title} className="shrink-0 w-10 h-10 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-lg">×</button>
 );
 
 const AddBtn = ({ onClick, children }) => (
-  <button type="button" onClick={onClick} className="mt-2 text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-md font-bold border border-indigo-200 hover:bg-indigo-100">{children}</button>
+  <button type="button" onClick={onClick} className="mt-3 text-sm bg-indigo-50 text-indigo-700 px-4 py-2.5 rounded-lg font-bold border border-indigo-200 hover:bg-indigo-100">{children}</button>
 );
 
-const Hint = ({ children }) => <p className="text-xs text-blue-600 mb-3">ℹ️ {children}</p>;
+const Hint = ({ children }) => <p className="text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2 mb-3">💡 {children}</p>;
 
 const Toggle = ({ checked, onChange, children }) => (
-  <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer select-none">
-    <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} className="w-4 h-4" />{children}
+  <label className="inline-flex items-center gap-3 text-sm font-bold text-gray-700 cursor-pointer select-none">
+    <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} className="w-5 h-5 accent-indigo-600" />{children}
   </label>
 );
 
@@ -40,8 +54,8 @@ function ItemList({ items, onChange, placeholder, numbering = 'numeric', renderE
           <div className="flex gap-2 items-start">
             <span className="font-bold font-arabic text-gray-400 text-lg pt-1.5 w-10 text-center shrink-0">{subLabel(i, numbering)}</span>
             {multiline
-              ? <textarea rows={1} value={it.text || ''} onChange={(e) => update(it.id, { text: e.target.value })} placeholder={placeholder} className={`${inputCls} min-h-[44px]`} dir="rtl" />
-              : <input type="text" value={it.text || ''} onChange={(e) => update(it.id, { text: e.target.value })} placeholder={placeholder} className={inputCls} dir="rtl" />}
+              ? <AutoText value={it.text || ''} onChange={(v) => update(it.id, { text: v })} placeholder={placeholder} />
+              : <input type="text" value={it.text || ''} onChange={(e) => update(it.id, { text: e.target.value })} placeholder={placeholder} className={inputCls} dir="rtl" autoComplete="off" spellCheck={false} />}
             <RemoveBtn onClick={() => onChange(items.filter(x => x.id !== it.id))} />
           </div>
           {renderExtra && <div className="mt-2 mr-12">{renderExtra(it, (patch) => update(it.id, patch))}</div>}
@@ -60,7 +74,7 @@ function OptionsEditor({ options, onChange, optional }) {
         {opts.map((o, k) => (
           <div key={k} className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-md pr-2">
             <span className="text-gray-400 text-xs">○</span>
-            <input type="text" value={o} onChange={(e) => onChange(opts.map((x, j) => (j === k ? e.target.value : x)))} placeholder={`Option ${k + 1}`} className="w-32 bg-transparent p-1.5 font-arabic text-lg outline-none" dir="rtl" />
+            <input type="text" value={o} onChange={(e) => onChange(opts.map((x, j) => (j === k ? e.target.value : x)))} placeholder={`Option ${k + 1}`} className="w-32 bg-transparent p-2 font-arabic text-xl outline-none" dir="rtl" />
             <button type="button" onClick={() => onChange(opts.filter((_, j) => j !== k))} className="px-1.5 text-red-400 hover:text-red-600">×</button>
           </div>
         ))}
@@ -71,37 +85,31 @@ function OptionsEditor({ options, onChange, optional }) {
   );
 }
 
-export default function QuestionEditor({ q, index, total, onChange, onRemove, onMove, onDuplicate, layout }) {
+export default function QuestionEditor({ q, onChange, layout }) {
   const set = (field, value) => onChange({ ...q, [field]: value });
-  const typeInfo = QUESTION_TYPES.find(t => t.type === q.type);
+  const [more, setMore] = useState(false);
 
   return (
-    <div className="bg-gray-50 p-3 md:p-4 mb-4 rounded-lg border border-gray-200">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2">
-          <span className="font-arabic text-lg text-indigo-700">{layout.questionLabel === 'number' ? `${toArabicNumerals(index + 1)}.` : `س${toArabicNumerals(index + 1)}`}</span>
-          <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded px-2 py-0.5">{typeInfo?.icon} {typeInfo?.label || q.type}</span>
-        </h3>
-        <div className="flex items-center gap-1 text-gray-500">
-          <button type="button" disabled={index === 0} onClick={() => onMove(-1)} title="Move up" className="w-8 h-8 rounded hover:bg-gray-200 disabled:opacity-30">↑</button>
-          <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} title="Move down" className="w-8 h-8 rounded hover:bg-gray-200 disabled:opacity-30">↓</button>
-          <button type="button" onClick={onDuplicate} title="Duplicate" className="w-8 h-8 rounded hover:bg-gray-200">⧉</button>
-          <button type="button" onClick={onRemove} title="Delete question" className="w-8 h-8 rounded text-red-400 hover:text-red-600 hover:bg-red-50">🗑</button>
-        </div>
-      </div>
-
+    <div>
       <div className="flex flex-col sm:flex-row gap-3 mb-3">
         <div className="flex-1">
-          <label className="block mb-1 text-xs font-bold text-gray-600">Question / Instruction</label>
-          <input type="text" value={q.text || ''} onChange={(e) => set('text', e.target.value)} className={inputCls} dir="rtl" />
+          <label className="block mb-1 text-sm font-bold text-gray-600">Question / Instruction</label>
+          <AutoText value={q.text || ''} onChange={(v) => set('text', v)} placeholder="سؤال…" />
         </div>
         <div>
-          <label className="block mb-1 text-xs font-bold text-gray-600">Marks</label>
+          <label className="block mb-1 text-sm font-bold text-gray-600">Marks</label>
           <Stepper value={q.marks} onChange={(v) => set('marks', v)} step={0.5} decimals />
         </div>
       </div>
 
-      <div className="mb-3"><Toggle checked={q.newPage} onChange={(v) => set('newPage', v)}>Start this question on a new page</Toggle></div>
+      <button type="button" onClick={() => setMore(!more)} className="text-sm text-gray-500 font-bold mb-3">{more ? '▾' : '▸'} More options</button>
+      {more && (
+        <div className="flex flex-col gap-3 mb-4 bg-white border border-gray-200 rounded-lg p-3">
+          <Toggle checked={q.newPage} onChange={(v) => set('newPage', v)}>Start this question on a new page</Toggle>
+          <Toggle checked={q.hideNumber} onChange={(v) => set('hideNumber', v)}>No number (س) for this question</Toggle>
+          <Toggle checked={q.hideMarks} onChange={(v) => set('hideMarks', v)}>Don't print the marks</Toggle>
+        </div>
+      )}
 
       <div className="border-t border-gray-200 pt-3">
         {q.type === 'subjective' && (
@@ -112,7 +120,7 @@ export default function QuestionEditor({ q, index, total, onChange, onRemove, on
                 <div key={sq.id} className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-md border border-gray-200 shadow-sm">
                   <div className="flex gap-2 flex-1">
                     <span className="font-bold text-lg pt-1.5 font-arabic text-gray-400 w-10 text-center shrink-0">{subLabel(i, layout.subNumbering)}</span>
-                    <textarea value={sq.text || ''} onChange={(e) => set('subQuestions', q.subQuestions.map(x => (x.id === sq.id ? { ...x, text: e.target.value } : x)))} className={`${inputCls} min-h-[48px]`} dir="rtl" placeholder="..." />
+                    <AutoText value={sq.text || ''} onChange={(v) => set('subQuestions', q.subQuestions.map(x => (x.id === sq.id ? { ...x, text: v } : x)))} placeholder="…" />
                   </div>
                   <div className="flex items-center gap-2 sm:flex-col sm:items-end mr-12 sm:mr-0">
                     <span className="text-[10px] font-bold text-gray-500 uppercase">Lines</span>
@@ -136,7 +144,7 @@ export default function QuestionEditor({ q, index, total, onChange, onRemove, on
                   <span className="font-bold font-arabic text-gray-400 text-lg w-8 text-center">{toArabicNumerals(i + 1)})</span>
                   <input type="text" value={b.text || ''} onChange={(e) => set('blanks', q.blanks.map(x => (x.id === b.id ? { ...x, text: e.target.value } : x)))} placeholder="وَيَطُوفُ عَلَيْهِمْ وِلْدَانٌ *" className={`${inputCls} flex-1 min-w-[60%]`} dir="rtl" />
                   {q.showWordBank !== false && (
-                    <input type="text" value={b.answer || ''} onChange={(e) => set('blanks', q.blanks.map(x => (x.id === b.id ? { ...x, answer: e.target.value } : x)))} placeholder="Answer" className="w-full sm:w-36 border border-green-300 bg-green-50 p-2 rounded-md font-arabic text-lg" dir="rtl" />
+                    <input type="text" value={b.answer || ''} onChange={(e) => set('blanks', q.blanks.map(x => (x.id === b.id ? { ...x, answer: e.target.value } : x)))} placeholder="Answer" className="w-full sm:w-40 border border-green-300 bg-green-50 px-3 py-2 rounded-lg font-arabic text-xl" dir="rtl" />
                   )}
                   <RemoveBtn onClick={() => set('blanks', q.blanks.filter(x => x.id !== b.id))} />
                 </div>
@@ -216,14 +224,86 @@ export default function QuestionEditor({ q, index, total, onChange, onRemove, on
         {q.type === 'textBlock' && (
           <>
             <Hint>Any text you like — a passage, poem, or your own question format. Line breaks are kept.</Hint>
-            <textarea value={q.content || ''} onChange={(e) => set('content', e.target.value)} className={`${inputCls} min-h-[120px]`} dir="rtl" />
+            <AutoText value={q.content || ''} onChange={(v) => set('content', v)} minRows={4} />
             <div className="flex items-center gap-2 mt-2">
               <span className="text-xs font-bold text-gray-600">Answer lines after text</span>
               <Stepper value={q.lines} onChange={(v) => set('lines', v)} />
             </div>
           </>
         )}
+        {q.type === 'table' && <TableEditor q={q} set={set} />}
+        {q.type === 'image' && <ImageEditor q={q} set={set} />}
       </div>
     </div>
+  );
+}
+
+function TableEditor({ q, set }) {
+  const rows = q.rows || [['']];
+  const cols = Math.max(1, ...rows.map(r => r.length));
+  const setRows = (r) => set('rows', r);
+  const cell = (r, c, v) => setRows(rows.map((row, i) => (i === r ? Array.from({ length: cols }, (_, j) => (j === c ? v : row[j] || '')) : row)));
+  return (
+    <>
+      <Hint>Type in any cell. Leave cells empty for students to write in.</Hint>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <AddBtn onClick={() => setRows([...rows, Array(cols).fill('')])}>+ Row</AddBtn>
+        <AddBtn onClick={() => setRows(rows.map(r => [...r, '']))}>+ Column</AddBtn>
+        {rows.length > 1 && <button type="button" onClick={() => setRows(rows.slice(0, -1))} className="mt-3 text-sm text-red-500 px-3 py-2 rounded-lg border border-red-200">− Row</button>}
+        {cols > 1 && <button type="button" onClick={() => setRows(rows.map(r => r.slice(0, cols - 1)))} className="mt-3 text-sm text-red-500 px-3 py-2 rounded-lg border border-red-200">− Column</button>}
+      </div>
+      <div className="mb-3"><Toggle checked={q.headerRow} onChange={(v) => set('headerRow', v)}>First row is a heading (shaded, bold)</Toggle></div>
+      <div className="overflow-x-auto">
+        <table className="border-collapse" dir="rtl">
+          <tbody>
+            {rows.map((row, r) => (
+              <tr key={r}>
+                {Array.from({ length: cols }, (_, c) => (
+                  <td key={c} className="border border-gray-300 p-0">
+                    <input type="text" value={row[c] || ''} onChange={(e) => cell(r, c, e.target.value)} dir="rtl" className={`w-32 px-2 py-2 font-arabic text-lg outline-none focus:bg-indigo-50 ${q.headerRow && r === 0 ? 'bg-gray-100 font-bold' : 'bg-white'}`} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function ImageEditor({ q, set }) {
+  const [busy, setBusy] = useState(false);
+  const onFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setBusy(true);
+    try { set('src', await resizeImage(file, 1000, 'image/jpeg')); }
+    catch { alert('Could not read that picture. Please try a JPG or PNG.'); }
+    setBusy(false);
+  };
+  return (
+    <>
+      <label className="flex items-center justify-center gap-2 border-2 border-dashed border-indigo-300 rounded-lg p-4 text-indigo-700 font-bold cursor-pointer hover:bg-indigo-50">
+        <input type="file" accept="image/*" onChange={onFile} className="hidden" />
+        {busy ? 'Loading…' : q.src ? '🔄 Change picture' : '📷 Choose a picture or take a photo'}
+      </label>
+      {q.src && (
+        <div className="mt-3">
+          <img src={q.src} alt="" className="max-h-48 mx-auto border rounded" />
+          <div className="flex items-center gap-3 mt-3">
+            <span className="text-sm font-bold text-gray-600 whitespace-nowrap">Size on paper</span>
+            <input type="range" min="20" max="100" step="5" value={q.width || 60} onChange={(e) => set('width', +e.target.value)} className="flex-1 accent-indigo-600" />
+            <span className="text-sm w-12">{q.width || 60}%</span>
+          </div>
+          <label className="block mt-3 mb-1 text-sm font-bold text-gray-600">Caption (optional)</label>
+          <AutoText value={q.caption || ''} onChange={(v) => set('caption', v)} />
+        </div>
+      )}
+      <div className="flex items-center gap-3 mt-3">
+        <span className="text-sm font-bold text-gray-600">Answer lines below</span>
+        <Stepper value={q.lines} onChange={(v) => set('lines', v)} />
+      </div>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useEffect, useRef, useState, forwardRef } from 'react'
-import { toArabicNumerals, subjectTotal, grandTotal, subLabel, questionLabel, parseMarks } from '../lib/paper'
+import { toArabicNumerals, subjectTotal, grandTotal, subLabel, questionLabel, parseMarks, questionNumbers } from '../lib/paper'
 
 // Small safety margin (px) left empty at the bottom of each page.
 const PAGE_SAFETY = 4;
@@ -42,21 +42,31 @@ export function buildBlocks(subjects, layout) {
       ),
     });
 
+    const numbers = questionNumbers(sub.questions);
     (sub.questions || []).forEach((q, qIndex) => {
       const k = `q-${q.id}`;
+      const firstBlock = out.length;
       const hasText = (q.text || '').trim() !== '';
-      out.push({
-        key: k, subject, keepWithNext: true, breakBefore: !!q.newPage,
-        node: (
-          <div className="flex justify-between items-start gap-4 pt-2 pb-2 font-bold">
-            <p className="underline underline-offset-[6px] decoration-1 leading-relaxed">
-              <span className="ml-2">{questionLabel(qIndex, layout.questionLabel)}</span>
-              {hasText && q.text}
-            </p>
-            <Marks value={q.marks} />
-          </div>
-        ),
-      });
+      const num = numbers[qIndex];
+      const showMarks = !q.hideMarks && parseMarks(q.marks) > 0;
+      if (hasText || num !== null || showMarks) {
+        out.push({
+          key: k, subject, keepWithNext: true,
+          node: (
+            <div className="flex justify-between items-start gap-4 pt-2 pb-2 font-bold">
+              <p className="underline underline-offset-[6px] decoration-1 leading-relaxed">
+                {num !== null && <span className="ml-2">{questionLabel(num, layout.questionLabel)}</span>}
+                {hasText && q.text}
+              </p>
+              {showMarks && <Marks value={q.marks} />}
+            </div>
+          ),
+        });
+      }
+      const tagQuestion = () => {
+        for (let i = firstBlock; i < out.length; i++) out[i].qid = q.id;
+        if (out[firstBlock]) out[firstBlock].breakBefore = !!q.newPage;
+      };
 
       if (q.type === 'subjective') {
         (q.subQuestions || []).forEach((sq, i) => {
@@ -208,6 +218,44 @@ export function buildBlocks(subjects, layout) {
         Lines({ n: Math.max(0, parseInt(q.lines) || 0), keyPrefix: k, subject, out });
         out.push({ key: `${k}-gap`, subject, node: <div className="h-2" /> });
       }
+
+      else if (q.type === 'table') {
+        const rows = q.rows || [];
+        const cols = Math.max(1, ...rows.map(r => r.length));
+        rows.forEach((row, r) => {
+          const head = q.headerRow && r === 0;
+          out.push({
+            key: `${k}-r${r}`, subject, keepWithNext: head && rows.length > 1,
+            node: (
+              <div className="px-2">
+                <div className={`grid border-x border-b border-black ${r === 0 ? 'border-t' : ''} ${head ? 'bg-gray-100 font-bold' : ''}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+                  {Array.from({ length: cols }, (_, c) => (
+                    <div key={c} className={`px-2 py-1 min-h-[2.2em] whitespace-pre-wrap text-center ${c < cols - 1 ? 'border-l border-black' : ''}`}>{row[c] || ''}</div>
+                  ))}
+                </div>
+                {r === rows.length - 1 && <div className="h-3" />}
+              </div>
+            ),
+          });
+        });
+      }
+
+      else if (q.type === 'image') {
+        if (q.src) {
+          out.push({
+            key: `${k}-img`, subject,
+            node: (
+              <figure className="px-3 py-2 flex flex-col items-center">
+                <img src={q.src} alt="" style={{ width: `${Math.min(100, Math.max(15, parseInt(q.width) || 60))}%` }} className="object-contain max-h-[200mm]" />
+                {(q.caption || '').trim() && <figcaption className="text-[0.85em] mt-1">{q.caption}</figcaption>}
+              </figure>
+            ),
+          });
+        }
+        Lines({ n: Math.max(0, parseInt(q.lines) || 0), keyPrefix: k, subject, out });
+        out.push({ key: `${k}-gap`, subject, node: <div className="h-2" /> });
+      }
+      tagQuestion();
     });
   });
   return out;
@@ -263,20 +311,31 @@ const PageNumberOnly = ({ pageNo }) => (
   <div className="text-center text-gray-500 font-bold text-[0.85em] pt-1 shrink-0">{toArabicNumerals(pageNo)}</div>
 );
 
-const StudentRow = ({ cell }) => (
-  <table className="w-full border-collapse border border-black">
-    <tbody>
-      <tr>
-        <td className={`border border-black ${cell} w-[10%] font-bold`}>نام :</td>
-        <td className={`border border-black ${cell} w-[40%]`}></td>
-        <td className={`border border-black ${cell} w-[14%] font-sans font-bold text-left text-[0.6em]`} dir="ltr">ITS NO:</td>
-        <td className={`border border-black ${cell} w-[20%]`}></td>
-        <td className={`border border-black ${cell} w-[12%] font-sans font-bold text-left text-[0.6em]`} dir="ltr">ROLL:</td>
-        <td className={`border border-black ${cell} w-[10%]`}></td>
-      </tr>
-    </tbody>
-  </table>
-);
+const isLatin = (t) => /[A-Za-z]/.test(t);
+
+// Student details boxes, two per row; an odd last field spans the full row.
+const StudentRow = ({ cell, fields }) => {
+  const list = (fields || []).filter(f => (f || '').trim() !== '');
+  if (list.length === 0) return null;
+  const rows = [];
+  for (let i = 0; i < list.length; i += 2) rows.push(list.slice(i, i + 2));
+  const label = (f) => (
+    <td className={`border border-black ${cell} font-bold whitespace-nowrap w-[1%] ${isLatin(f) ? 'font-sans text-[0.65em]' : ''}`} dir={isLatin(f) ? 'ltr' : 'rtl'}>{f}{isLatin(f) ? ':' : ' :'}</td>
+  );
+  return (
+    <table className="w-full border-collapse border border-black">
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            {label(r[0])}
+            <td className={`border border-black ${cell}`} colSpan={r.length === 1 ? 3 : 1} style={{ width: r.length === 1 ? 'auto' : '50%' }}></td>
+            {r[1] && <>{label(r[1])}<td className={`border border-black ${cell}`} style={{ width: '50%' }}></td></>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
 
 const MarksTable = ({ subjects, cell }) => (
   <table className="w-full border-collapse border border-black text-center font-bold">
@@ -290,7 +349,7 @@ const MarksTable = ({ subjects, cell }) => (
   </table>
 );
 
-const CoverPage = ({ header, school, subjects }) => {
+const CoverPage = ({ header, school, subjects, fields }) => {
   const dense = subjects.length > 5;
   const cell = dense ? 'p-1' : 'p-2.5';
   return (
@@ -306,14 +365,14 @@ const CoverPage = ({ header, school, subjects }) => {
         <span className="font-sans text-[0.75em]">{header.paperNumber}</span>
         <span className="font-sans text-[0.75em] font-medium" dir="ltr">Time: {header.time}</span>
       </div>
-      <div className={dense ? 'mb-4' : 'mb-10'}><StudentRow cell={cell} /></div>
+      <div className={dense ? 'mb-4' : 'mb-10'}><StudentRow cell={cell} fields={fields} /></div>
       <MarksTable subjects={subjects} cell={cell} />
     </div>
   );
 };
 
 // Compact info strip used instead of a full cover page.
-const CompactHeader = ({ header, school, subjects }) => (
+const CompactHeader = ({ header, school, subjects, fields }) => (
   <div className="mb-3">
     <div className="flex items-center gap-3 border-b-2 border-black pb-1 mb-2">
       {school?.logo && <img src={school.logo} alt="" className="h-12 object-contain" />}
@@ -326,7 +385,7 @@ const CompactHeader = ({ header, school, subjects }) => (
       <span>{subjects.map(s => s.title).join(' ، ')}</span>
       <span className="font-sans whitespace-nowrap" dir="ltr">{header.paperNumber} · Time: {header.time} · Marks: {grandTotal(subjects)}</span>
     </div>
-    <StudentRow cell="p-1" />
+    <StudentRow cell="p-1.5" fields={fields} />
   </div>
 );
 
@@ -340,14 +399,17 @@ const Sheet = forwardRef(({ layout, className = '', children }, ref) => (
 // ---------------------------------------------------------------------------
 // PREVIEW
 // ---------------------------------------------------------------------------
-export default function PaperPreview({ header, subjects, school, layout, pagesRef }) {
+export default function PaperPreview({ header, subjects, school, layout, pagesRef, focusQuestionId, onEditQuestion, onPageCount }) {
   const blocks = buildBlocks(subjects, layout);
   const measureRef = useRef(null);
   const firstTplRef = useRef(null);
   const restTplRef = useRef(null);
   const [measure, setMeasure] = useState(null);
   const [fontsReady, setFontsReady] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const fitZoom = () => Math.min(1, (window.innerWidth - 16) / (210 * 96 / 25.4));
+  const [zoom, setZoom] = useState(fitZoom);
+  const [imgTick, setImgTick] = useState(0); // re-measure once pictures finish loading
+  const scrolledFor = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -358,16 +420,12 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
 
   // Fit the A4 pages to narrow phone screens (print always resets zoom to 1).
   useEffect(() => {
-    const onResize = () => {
-      const a4px = 210 * 96 / 25.4;
-      setZoom(Math.min(1, (window.innerWidth - 16) / a4px));
-    };
-    onResize();
+    const onResize = () => setZoom(fitZoom());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const signature = JSON.stringify([subjects, layout, header, !!school?.logo, school?.nameAr, fontsReady]);
+  const signature = JSON.stringify([subjects, layout, header, !!school?.logo, school?.nameAr, fontsReady, imgTick]);
   useLayoutEffect(() => {
     if (!measureRef.current) return;
     const heights = {};
@@ -380,11 +438,25 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
 
   const cover = layout.coverStyle === 'full';
   const compact = layout.coverStyle === 'compact';
-  const pages = measure && measure.signature === signature ? paginate(blocks, measure.heights, measure.capFirst, measure.capRest) : null;
+  // While a re-measure is pending, keep showing the last layout (it is replaced before the browser paints),
+  // so the page never flashes empty and the scroll position is kept.
+  const pages = measure ? paginate(blocks, measure.heights, measure.capFirst, measure.capRest) : null;
+  const settled = !!measure && measure.signature === signature && fontsReady;
   const pageCount = (pages?.length || 0) + (cover ? 1 : 0);
 
+  useEffect(() => { if (pages) onPageCount?.(pageCount); }, [pageCount, !!pages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open the preview at the question the teacher was just editing.
+  useEffect(() => {
+    if (!settled || !focusQuestionId || scrolledFor.current === focusQuestionId) return;
+    scrolledFor.current = focusQuestionId;
+    const el = pagesRef?.current?.querySelector(`[data-qid="${focusQuestionId}"]`);
+    // Manual scroll: scrollIntoView mis-computes positions inside CSS-zoomed pages on some browsers.
+    if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 120) });
+  }, [settled, focusQuestionId, pagesRef]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const chrome = (isFirst) => compact && isFirst
-    ? <CompactHeader header={header} school={school} subjects={subjects} />
+    ? <CompactHeader header={header} school={school} subjects={subjects} fields={layout.studentFields} />
     : <RunningHeader header={header} />;
   const footer = (pageNo, pageBlocks) => layout.showFooter
     ? <Footer header={header} subjects={[...new Set(pageBlocks.map(b => b.subject).filter(Boolean))]} pageNo={pageNo} pageCount={pageCount} />
@@ -394,7 +466,7 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
   return (
     <>
       {/* Hidden measuring pass: same sheet, same width, same fonts. */}
-      <div ref={measureRef} className="paper-measure" aria-hidden="true">
+      <div ref={measureRef} className="paper-measure" aria-hidden="true" onLoadCapture={() => setImgTick(t => t + 1)}>
         <Sheet layout={layout} ref={firstTplRef} className="template">{chrome(true)}<div className="sheet-content" />{footerSample}</Sheet>
         <Sheet layout={layout} ref={restTplRef} className="template">{chrome(false)}<div className="sheet-content" />{footerSample}</Sheet>
         <Sheet layout={layout}>
@@ -410,7 +482,7 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
             <>
               {cover && (
                 <Sheet layout={layout}>
-                  <CoverPage header={header} school={school} subjects={subjects} />
+                  <CoverPage header={header} school={school} subjects={subjects} fields={layout.studentFields} />
                   {layout.showFooter ? <Footer header={header} subjects={[]} pageNo={1} pageCount={pageCount} /> : <PageNumberOnly pageNo={1} />}
                 </Sheet>
               )}
@@ -418,7 +490,9 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
                 <Sheet key={i} layout={layout}>
                   {chrome(i === 0)}
                   <div className="sheet-content">
-                    {pageBlocks.map(b => <div key={b.key} className="paper-block">{b.node}</div>)}
+                    {pageBlocks.map(b => (
+                      <div key={b.key} className={`paper-block ${b.qid ? 'cursor-pointer hover:bg-yellow-50' : ''}`} data-qid={b.qid} onClick={b.qid && onEditQuestion ? () => onEditQuestion(b.qid) : undefined}>{b.node}</div>
+                    ))}
                   </div>
                   {footer(i + 1 + (cover ? 1 : 0), pageBlocks)}
                 </Sheet>
