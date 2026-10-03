@@ -14,6 +14,10 @@ body {
   background-color: #f3f4f6;
 }
 
+.font-english {
+  font-family: "Noto Serif", Georgia, "Times New Roman", serif !important;
+}
+
 .font-arabic {
   font-family: "KanzAlMarjaan", Arial, sans-serif !important;
 }
@@ -49,7 +53,6 @@ input[type='number'] {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   padding: 13mm 15mm 10mm;
   box-sizing: border-box;
-  direction: rtl;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -59,6 +62,9 @@ input[type='number'] {
   line-height: 1.6;
   color: #000;
 }
+.a4-sheet.lang-en { font-family: "Noto Serif", Georgia, "Times New Roman", serif; --paper-fs: 16px; line-height: 1.7; }
+.a4-sheet.lang-en.size-small { --paper-fs: 14px; }
+.a4-sheet.lang-en.size-large { --paper-fs: 18.5px; }
 .a4-sheet.size-small { --paper-fs: 17px; }
 .a4-sheet.size-large { --paper-fs: 23px; }
 

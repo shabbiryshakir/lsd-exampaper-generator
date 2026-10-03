@@ -17,8 +17,8 @@ export default {
     {
       id: 's2', title: 'تعليم القرآن', questions: [
         { id: 'q4', type: 'match', marks: 4, text: 'جورٌو :', pairs: words.slice(0, 5).map((w, i) => ({ right: w, left: words[(i + 3) % 8] })) },
-        { id: 'q5', type: 'mcq', marks: 2.5, text: 'اختر الجواب الصحيح :', optionLayout: 'row', items: [1, 2, 3].map(i => ({ id: 'm' + i, text: long.slice(0, 50), options: words.slice(i, i + 3) })) },
-        { id: 'q6', type: 'trueFalse', marks: 3, text: 'ضع علامة ✓ أو ✗ :', tfStyle: 'box', items: [1, 2, 3, 4].map(i => ({ id: 't' + i, text: long.slice(0, 35 + i * 8) })) },
+        { id: 'q5', type: 'mcq', marks: 2.5, text: 'اختر الجواب الصحيح :', optionLayout: 'row', items: [1, 2, 3].map(i => ({ id: 'm' + i, text: long.slice(0, 50), options: words.slice(i, i + 3), answer: i % 3 })) },
+        { id: 'q6', type: 'trueFalse', marks: 3, text: 'ضع علامة ✓ أو ✗ :', tfStyle: 'box', items: [1, 2, 3, 4].map(i => ({ id: 't' + i, text: long.slice(0, 35 + i * 8), answer: i % 2 === 0 })) },
         { id: 'q7', type: 'whoSaid', marks: 4, text: 'من قال لمن ؟', saidLabels: { speaker: 'القائل', listener: 'المقول له' }, items: [{ id: 'ws1', text: long.slice(0, 60), options: [] }, { id: 'ws2', text: long.slice(0, 40), options: ['موسى', 'هارون', 'فرعون'] }] },
         { id: 'q8', type: 'textBlock', marks: 5, text: 'اقرأ النص ثم أجب :', content: long + '\n' + long, lines: 12 },
         { id: 'q10', type: 'table', marks: 3, text: 'جدول ثثورو كرو :', headerRow: true, rows: [['المفرد', 'الجمع', 'الضد'], ['كتاب', '', ''], ['قلم', '', '']] },
@@ -27,4 +27,19 @@ export default {
       ],
     },
   ],
+};
+
+export const englishPaper = {
+  id: 'demo-en',
+  lastEdited: new Date(Date.now() - 86400000).toISOString(),
+  header: { className: 'Grade 5', examName: 'Unit Test', hijriYear: '2026', paperNumber: 'Paper 2', time: '1 Hr' },
+  layout: { language: 'en', coverStyle: 'compact', pageBorder: true, showFooter: true, questionLabel: 'sin', subNumbering: 'abjad', textSize: 'normal', studentFields: ['Name', 'ITS No', 'Roll No'] },
+  subjects: [{
+    id: 'en1', title: 'English', questions: [
+      { id: 'e1', type: 'fillBlanks', marks: 3, text: 'Fill in the blanks:', showWordBank: true, blanks: [{ id: 'eb1', text: 'The sun rises in the *.', answer: 'east' }, { id: 'eb2', text: 'Water boils at * degrees.', answer: '100' }] },
+      { id: 'e2', type: 'mcq', marks: 2, text: 'Choose the correct answer:', optionLayout: 'row', items: [{ id: 'em1', text: 'Which is a noun?', options: ['run', 'table', 'quickly'], answer: 1 }] },
+      { id: 'e3', type: 'trueFalse', marks: 2, text: 'Write True or False:', tfStyle: 'words', items: [{ id: 'et1', text: 'A week has seven days.', answer: true }, { id: 'et2', text: 'Cats can fly.', answer: false }] },
+      { id: 'e4', type: 'subjective', marks: 5, text: 'Answer the following questions:', subQuestions: [{ id: 'es1', text: 'What is your favourite season and why?', lines: 4, answer: 'Any reasoned answer.' }] },
+    ],
+  }],
 };

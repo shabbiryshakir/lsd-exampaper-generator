@@ -56,7 +56,19 @@ export async function downloadPdf(container, fileName, onProgress) {
   } finally {
     if (zoomEl) zoomEl.style.zoom = prevZoom;
   }
-  pdf.save(fileName);
+  saveBlob(pdf.output('blob'), fileName);
+}
+
+// Triggers a file download with the given name (works for Arabic names too).
+function saveBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 // Shrinks an uploaded logo so it never bloats saved papers (Firestore documents are limited to 1 MB).

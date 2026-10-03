@@ -1,17 +1,28 @@
 // In-app "What's new" notes. Add a new entry at the top whenever the app is updated;
-// teachers see a red dot on the bell until they open it.
+// teachers see a red dot on the menu until they open it.
 export const WHATS_NEW = [
+  {
+    version: '3.0',
+    date: '2026-10',
+    items: [
+      'New look: LSD Teacher Tools, with clear icons',
+      'Your work saves automatically — even without internet',
+      'Undo, version history and a 30-day trash for deleted papers',
+      'English papers (left to right) as well as Lisan ud Dawat',
+      'Answer key: type answers and download a printable key',
+      'Templates: save any question or paper and reuse it',
+      'App settings: bigger text for easier reading',
+    ],
+  },
   {
     version: '2.0',
     date: '2026-10',
     items: [
-      'Install the app on your phone — works without internet too',
-      'Questions fold up so the editor stays short — tap one to edit it',
+      'Install the app on your phone',
+      'Questions fold up so the editor stays short',
       'Tap any question in the Preview to jump straight to it',
-      'New question types: Table and Picture',
-      'Rename or add boxes on the cover (Name, ITS, Roll no, Date…)',
-      'Hide the number or marks of any question',
-      'Logo now always appears in Download PDF',
+      'Table and Picture question types; editable student boxes',
+      'Logo always appears in Download PDF',
     ],
   },
   {
@@ -19,9 +30,8 @@ export const WHATS_NEW = [
     date: '2026-09',
     items: [
       'Pages are measured exactly — what you see is what prints',
-      'Download PDF button',
-      'Multiple Choice, True/False, Who said to whom, Word list, Free text',
-      'Compact first page, page border, footer for photocopies, half marks',
+      'Download PDF; Multiple Choice, True/False, Who said to whom, Word list',
+      'Compact first page, page border, footer, half marks',
     ],
   },
 ];

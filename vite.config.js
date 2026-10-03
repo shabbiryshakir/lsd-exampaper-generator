@@ -7,11 +7,11 @@ export default defineConfig(({ command }) => ({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
       manifest: {
-        name: 'LSD Exam Paper Generator',
-        short_name: 'Exam Papers',
-        description: 'Create beautiful Lisan ud Dawat exam papers on your phone and print them as A4 PDFs.',
+        name: 'LSD — Teacher Tools',
+        short_name: 'LSD',
+        description: 'Teacher tools for Lisan ud Dawat: make exam papers, answer keys and more, and print them as A4 PDFs.',
         theme_color: '#4338ca',
         background_color: '#f3f4f6',
         display: 'standalone',
