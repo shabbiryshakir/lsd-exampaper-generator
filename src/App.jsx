@@ -178,7 +178,16 @@ function App() {
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
     onRegisteredSW(_url, reg) {
       if (!reg) return;
-      const check = () => { if (navigator.onLine) reg.update().catch(() => {}); };
+      // Ask the server which build is live (never from a cache); if it isn't this one,
+      // fetch the new service worker, which then reloads the app into the new version.
+      const check = () => {
+        if (!navigator.onLine) return;
+        fetch(`${import.meta.env.BASE_URL}version.json`, { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((v) => { if (!v || v.build !== BUILD_TIME) reg.update().catch(() => {}); })
+          .catch(() => reg.update().catch(() => {}));
+      };
+      check();
       setInterval(check, 30 * 60 * 1000);
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
     },

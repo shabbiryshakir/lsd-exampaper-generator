@@ -2,10 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const BUILD_TIME = new Date().toISOString()
+
+// Writes version.json next to the app so open copies can ask the server whether they are current.
+const versionFile = {
+  name: 'version-file',
+  generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: BUILD_TIME }) })
+  },
+}
+
 export default defineConfig(({ command }) => ({
-  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
+  define: { __BUILD_TIME__: JSON.stringify(BUILD_TIME) },
   plugins: [
     react(),
+    versionFile,
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
@@ -34,6 +45,9 @@ export default defineConfig(({ command }) => ({
         globPatterns: ['**/*.{js,css,html,svg,png,ttf,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/__/],
+        // Reloads open copies of the app into each new version (see public/sw-takeover.js).
+        importScripts: ['sw-takeover.js'],
+        globIgnores: ['sw-takeover.js', 'version.json'],
       },
     }),
   ],
