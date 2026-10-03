@@ -7,7 +7,7 @@
   src: url("/fonts/KanzAlMarjaan.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 body {
@@ -16,44 +16,6 @@ body {
 
 .font-arabic {
   font-family: "KanzAlMarjaan", Arial, sans-serif !important;
-}
-
-/* Restores smooth horizontal scrolling on mobile phones */
-.a4-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* Centers perfectly on large screens */
-  padding-top: 20px;
-}
-
-/* STRICT A4 SHEET PREVIEW */
-.a4-sheet {
-  width: 210mm;
-  min-width: 210mm; /* Forces the browser to respect the width, enabling scrolling */
-  height: 297mm; 
-  background: white;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-  padding: 15mm 20mm; 
-  box-sizing: border-box;
-  direction: rtl; 
-  position: relative; 
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 30px;
-}
-
-/* Unlocks the centering on mobile so the sides don't get cut off! */
-@media (max-width: 820px) {
-  .a4-wrapper {
-    align-items: flex-start; 
-  }
-  .a4-sheet {
-    margin-left: 10px;
-    margin-right: 10px;
-  }
 }
 
 /* Hides default browser arrows on number inputs */
@@ -66,20 +28,101 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
-/* FLAWLESS PDF PRINTING */
+/* =========================================================================
+   A4 PAPER
+   Everything inside the sheet is sized in px/em relative to --paper-fs so the
+   measuring pass and the printed result use exactly the same geometry.
+   ========================================================================= */
+.paper-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 0 24px;
+}
+
+.a4-sheet {
+  --paper-fs: 20px;
+  width: 210mm;
+  height: 297mm;
+  background: white;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 13mm 15mm 10mm;
+  box-sizing: border-box;
+  direction: rtl;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: "KanzAlMarjaan", Arial, sans-serif;
+  font-size: var(--paper-fs);
+  line-height: 1.6;
+  color: #000;
+}
+.a4-sheet.size-small { --paper-fs: 17px; }
+.a4-sheet.size-large { --paper-fs: 23px; }
+
+.sheet-border {
+  position: absolute;
+  inset: 6mm;
+  border: 3px double #000;
+  pointer-events: none;
+}
+
+.sheet-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Each packable block is a flow-root so its margins never collapse into a
+   neighbour: the sum of the measured heights equals the stacked height. */
+.paper-block { display: flow-root; }
+
+.answer-line {
+  height: 2.1em;
+  border-bottom: 2px dotted #555;
+}
+
+.blank-gap {
+  display: inline-block;
+  min-width: 7em;
+  border-bottom: 2px solid #000;
+  margin: 0 0.4em;
+  transform: translateY(-0.25em);
+}
+
+.paper-measure {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.paper-measure .a4-sheet { height: auto; min-height: 0; overflow: visible; box-shadow: none; }
+.paper-measure .a4-sheet.template { height: 297mm; }
+
+/* =========================================================================
+   PRINTING
+   ========================================================================= */
 @media print {
   * {
-    /* This forces the browser to print your grey backgrounds! */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   @page { margin: 0; size: A4 portrait; }
-  body { background-color: white; margin: 0; padding: 0; }
-  .a4-wrapper { overflow: visible; padding: 0; display: block; margin: 0; }
-  .a4-sheet { 
-    margin: 0 !important; 
-    box-shadow: none !important; 
-    page-break-after: always;
+  html, body, #root { background: white !important; margin: 0 !important; padding: 0 !important; }
+  .paper-zoom { zoom: 1 !important; transform: none !important; }
+  .paper-pages { display: block; padding: 0; gap: 0; }
+  .paper-measure { display: none !important; }
+  .a4-sheet {
+    margin: 0 !important;
+    box-shadow: none !important;
+    /* A hair under 297mm so rounding can never spill a sheet onto a second page */
+    height: 296.5mm;
     break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
   }
+  .a4-sheet:last-child { break-after: auto; page-break-after: auto; }
 }

@@ -12,6 +12,8 @@
   "dependencies": {
     "@google/generative-ai": "^0.2.1",
     "firebase": "^10.8.1",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
