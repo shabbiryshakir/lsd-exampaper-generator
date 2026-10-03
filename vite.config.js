@@ -3,15 +3,16 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig(({ command }) => ({
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
       manifest: {
-        name: 'Qalam — Exam Papers',
-        short_name: 'Qalam',
-        description: 'Create exam papers and answer keys in Lisan ud Dawat and English, work on them together, and print perfect A4 PDFs.',
+        name: 'LSD Paper Maker',
+        short_name: 'LSD Papers',
+        description: 'A free community tool for teachers to make LSD and English exam papers and answer keys.',
         theme_color: '#18625d',
         background_color: '#f6f7f5',
         display: 'standalone',
@@ -25,6 +26,10 @@ export default defineConfig(({ command }) => ({
         ],
       },
       workbox: {
+        // New versions take over straight away instead of waiting for every tab to close.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Cache the whole app (including the Arabic font) so it opens offline.
         globPatterns: ['**/*.{js,css,html,svg,png,ttf,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

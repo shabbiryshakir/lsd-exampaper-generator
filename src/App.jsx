@@ -7,7 +7,7 @@ import Editor from './components/Editor'
 import PaperPreview from './components/PaperPreview'
 import Icon from './components/Icon'
 import { Wordmark, BrandMark } from './components/Brand'
-import { BRAND } from './lib/brand'
+import { BRAND, BUILD_TIME } from './lib/brand'
 import { DEFAULT_SCHOOL_INFO, uid, LANGUAGES, langOf, defaultsFor, normalizeSubjects, normalizeHeader, normalizeLayout, paperSizeKb, cloneWithNewIds, pickPrint, answerStats, grandTotal } from './lib/paper'
 import { downloadPdf, resizeImage } from './lib/pdf'
 import { WHATS_NEW, LATEST_VERSION } from './lib/whatsNew'
@@ -172,7 +172,16 @@ function App() {
   const toastTimer = useRef(null);
   const wide = useMedia('(min-width: 1280px)');
 
-  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
+  // Updates install by themselves: check when the app opens, when it comes back to the
+  // foreground, and every 30 minutes; the new version takes over on the next reload.
+  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
+    onRegisteredSW(_url, reg) {
+      if (!reg) return;
+      const check = () => { if (navigator.onLine) reg.update().catch(() => {}); };
+      setInterval(check, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    },
+  });
 
   const [schoolSettings, setSchoolSettings] = useState(() => store.json('schoolSettings', DEFAULT_SCHOOL_INFO));
   const [header, setHeader] = useState(() => defaultsFor('lsd').header);
@@ -703,7 +712,7 @@ function App() {
             Continue with Google
           </button>
           {!online && <p className="text-amber-300 text-sm mt-4 text-center">You are offline. Connect to the internet to sign in.</p>}
-          <p className="text-brand-200/70 text-xs text-center mt-6">Free for teachers · Your papers are private unless you share them</p>
+          <p className="text-brand-200/70 text-xs text-center mt-6">A free community tool for teachers · Your papers stay private unless you share them</p>
         </div>
       </div>
     );
@@ -1260,7 +1269,7 @@ function App() {
             <li><b>Share</b>: send a copy with a code, or invite colleagues to write the paper together.</li>
             <li>Made a mistake? Tap <b>Undo</b>, or ⋮ → <b>Version history</b>.</li>
           </ul>
-          <div className="text-xs text-slate-400 border-t border-slate-100 pt-3 text-center">Made with care by <a href="https://shabbiryshakir.github.io" target="_blank" rel="noreferrer" className="underline">S. Shakir</a> · {BRAND.name} v{LATEST_VERSION} beta</div>
+          <div className="text-xs text-slate-400 border-t border-slate-100 pt-3 text-center">Made with care by <a href="https://shabbiryshakir.github.io" target="_blank" rel="noreferrer" className="underline">S. Shakir</a> · {BRAND.name} v{LATEST_VERSION} beta{BUILD_TIME ? ` · built ${new Date(BUILD_TIME).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div>
         </Modal>
       )}
     </div>

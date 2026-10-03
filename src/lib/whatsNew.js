@@ -2,9 +2,19 @@
 // teachers see a dot on the menu until they open it.
 export const WHATS_NEW = [
   {
+    version: '1.1',
+    date: 'Beta',
+    title: 'LSD Paper Maker',
+    items: [
+      'Back to our name: LSD Paper Maker, with a simple new look',
+      'New versions now install by themselves — no need to reinstall or clear anything',
+      'The version and build date are shown in Menu → Help & about',
+    ],
+  },
+  {
     version: '1.0',
     date: 'Beta',
-    title: 'Welcome to Qalam',
+    title: 'Big update',
     items: [
       'Make exam papers in Lisan ud Dawat (right to left) and English (left to right)',
       '10 question types: written answers, fill in the blanks, match, multiple choice, true/false, who said, word lists, passages, tables and pictures',
