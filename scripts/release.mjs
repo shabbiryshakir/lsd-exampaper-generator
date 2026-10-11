@@ -6,11 +6,11 @@
 //
 //   node scripts/release.mjs beta              build this checkout and publish it to /beta/
 //   node scripts/release.mjs live              build this checkout and publish it to the live address
-//   node scripts/release.mjs classic [ref]     build an older version (default: tag classic-v1) into /classic/
+//   node scripts/release.mjs classic [ref]     build an older version (default: branch archive/classic-v1) into /classic/
 //
 // Add --push to also push gh-pages to GitHub (without it you can look at the commit first).
 // `live` leaves /beta/ and /classic/ alone, so the classic copy always stays available.
-// To go back to the old version for everyone: node scripts/release.mjs live --ref classic-v1 --push
+// To go back to the old version for everyone: node scripts/release.mjs live --ref origin/archive/classic-v1 --push
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,10 +28,10 @@ const run = (cmd, argv, cwd) => execFileSync(cmd, argv, { cwd, stdio: 'inherit' 
 const out = (cmd, argv, cwd) => execFileSync(cmd, argv, { cwd, encoding: 'utf8' }).trim();
 const root = out('git', ['rev-parse', '--show-toplevel']);
 const work = mkdtempSync(join(tmpdir(), 'release-'));
-const ref = opt('ref') || (target === 'classic' ? 'classic-v1' : null);
+const ref = opt('ref') || (target === 'classic' ? 'origin/archive/classic-v1' : null);
 
 try {
-  run('git', ['fetch', 'origin', 'gh-pages'], root);
+  run('git', ['fetch', 'origin'], root);
   // 1. Source: this checkout, or a clean copy of an older version.
   let src = root;
   if (ref) {

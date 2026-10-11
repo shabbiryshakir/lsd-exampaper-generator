@@ -58,12 +58,12 @@ the answer key, added to the word bank of a fill-in-the-blanks) and `n=0` hides 
 
 ## Releasing (beta, live, classic)
 
-Three copies can be online at once: live (`/`), `/beta/` and `/classic/` (the version before the Quran update, tag `classic-v1`).
+Three copies can be online at once: live (`/`), `/beta/` and `/classic/` (the version before the Quran update, branch `archive/classic-v1`).
 
 ```bash
 node scripts/release.mjs beta --push        # publish this checkout to /beta/
 node scripts/release.mjs live --push        # make this checkout the live version (beta and classic stay online)
-node scripts/release.mjs live --ref classic-v1 --push   # roll everybody back to the classic version
+node scripts/release.mjs live --ref origin/archive/classic-v1 --push   # roll everybody back to the classic version
 ```
 
 Without `--push` the result is only committed to the local `gh-pages` branch so you can look first.
