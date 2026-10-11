@@ -60,6 +60,7 @@ try {
   if (flag('push')) { run('git', ['push', 'origin', 'gh-pages'], root); console.log(`Pushed. It is online in a minute or two at https://shabbiryshakir.github.io/${REPO}${target === 'live' ? '/' : `/${target}/`}`); }
   else console.log('Not pushed yet. Run again with --push, or: git push origin gh-pages');
 } finally {
-  for (const dir of [join(work, 'pages'), join(work, 'src')]) { try { run('git', ['worktree', 'remove', '--force', dir], root); } catch { /* not created */ } }
+  for (const dir of [join(work, 'pages'), join(work, 'src')]) { if (existsSync(dir)) run('git', ['worktree', 'remove', '--force', dir], root); }
+  run('git', ['worktree', 'prune'], root);
   rmSync(work, { recursive: true, force: true });
 }
