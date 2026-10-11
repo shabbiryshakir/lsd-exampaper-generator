@@ -5,7 +5,7 @@ import {
   Settings, Bell, Smartphone, Info, LogOut, Search, FileText, Palette, Undo2, Redo2, History, BookmarkPlus, Bookmark,
   Library, KeyRound, Languages, WifiOff, CloudCheck, CloudUpload, RotateCcw, Sparkles, ListTree, MoreVertical, School,
   Upload, Loader2, FileCheck2, Type, BookOpen, File, Users, UserRound, UserPlus, UserMinus, Share2, Link, Ticket, LogIn,
-  Send, ArrowRight, ShieldCheck, PanelRight, FolderOpen,
+  Send, ArrowRight, ShieldCheck, PanelRight, FolderOpen, BookOpenText, MessageSquarePlus, Compass, Rocket, LifeBuoy, Bug, Lightbulb, Heart, Wand2, Mail, Inbox, CircleHelp, Rows3, Paintbrush,
 } from 'lucide-react';
 
 const ICONS = {
@@ -14,7 +14,7 @@ const ICONS = {
   Settings, Bell, Smartphone, Info, LogOut, Search, FileText, Palette, Undo2, Redo2, History, BookmarkPlus, Bookmark,
   Library, KeyRound, Languages, WifiOff, CloudCheck, CloudUpload, RotateCcw, Sparkles, ListTree, MoreVertical, School,
   Upload, Loader2, FileCheck2, Type, BookOpen, File, Users, UserRound, UserPlus, UserMinus, Share2, Link, Ticket, LogIn,
-  Send, ArrowRight, ShieldCheck, PanelRight, FolderOpen,
+  Send, ArrowRight, ShieldCheck, PanelRight, FolderOpen, BookOpenText, MessageSquarePlus, Compass, Rocket, LifeBuoy, Bug, Lightbulb, Heart, Wand2, Mail, Inbox, CircleHelp, Rows3, Paintbrush,
 };
 
 export default function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {

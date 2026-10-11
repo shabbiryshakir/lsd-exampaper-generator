@@ -16,6 +16,7 @@ export default class ErrorBoundary extends Component {
         <div className="text-lg font-bold text-slate-900 mb-2">This paper could not be shown</div>
         <p className="text-slate-600 mb-5">Your saved work is safe. Please go back and try again. If it keeps happening, tell us the paper's name so we can fix it.</p>
         <button onClick={() => { this.setState({ error: null }); this.props.onBack?.(); }} className="w-full bg-brand-700 text-white font-bold py-3 rounded-2xl">Back to my papers</button>
+        {this.props.onReport && <button onClick={() => this.props.onReport(String(this.state.error?.message || this.state.error))} className="w-full mt-2 border border-slate-200 text-slate-700 font-bold py-3 rounded-2xl">Tell us about it</button>}
         <p className="text-xs text-slate-400 mt-4 break-words">{String(this.state.error?.message || this.state.error)}</p>
       </div>
     );

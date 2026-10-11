@@ -4,6 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const BUILD_TIME = new Date().toISOString()
 
+// Where the app is served from. `vite build --base /lsd-exampaper-generator/beta/` builds the beta copy
+// (see scripts/release.mjs); the plain build is the live one at the repo root.
+const baseArg = process.argv.indexOf('--base');
+const BASE = baseArg > -1 ? process.argv[baseArg + 1] : '/lsd-exampaper-generator/';
+// Copies of the app living in folders next to (below) this one: their pages must never be answered with this one's.
+const COPIES = ['beta', 'classic'].filter((n) => !BASE.endsWith(`/${n}/`));
+
 // Writes version.json next to the app so open copies can ask the server whether they are current.
 const versionFile = {
   name: 'version-file',
@@ -19,7 +26,7 @@ export default defineConfig(({ command }) => ({
     versionFile,
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf'],
+      includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'fonts/KanzAlMarjaan.ttf', 'fonts/UthmanicHafs.ttf', 'fonts/ScheherazadeNew.ttf'],
       manifest: {
         name: 'LSD Paper Maker',
         short_name: 'LSD Papers',
@@ -42,15 +49,16 @@ export default defineConfig(({ command }) => ({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         // Cache the whole app (including the Arabic font) so it opens offline.
-        globPatterns: ['**/*.{js,css,html,svg,png,ttf,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ttf,woff2,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/__/],
+        // /beta/ and /classic/ are other copies of the app living next to this one: never answer their pages with this one.
+        navigateFallbackDenylist: [/^\/__/, ...(BASE.endsWith('/lsd-exampaper-generator/') ? [new RegExp(`/(${COPIES.join('|')})(/|$)`)] : [])],
         // Reloads open copies of the app into each new version (see public/sw-takeover.js).
         importScripts: ['sw-takeover.js'],
         globIgnores: ['sw-takeover.js', 'version.json'],
       },
     }),
   ],
-  // GitHub Pages serves the app from /lsd-exampaper-generator/; locally it runs from the root.
-  base: command === 'build' ? '/lsd-exampaper-generator/' : '/',
+  // GitHub Pages serves the app from /lsd-exampaper-generator/ (beta and classic copies from a folder below it); locally it runs from the root.
+  base: command === 'build' ? BASE : '/',
 }))

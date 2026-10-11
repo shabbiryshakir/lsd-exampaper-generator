@@ -1,4 +1,5 @@
 // Paper data model: languages, defaults, factories, normalisation of old saved papers, and formatting helpers.
+import { hasQuranBlanks } from './quran'
 
 export const TIME_OPTIONS = ['30 Mins', '45 Mins', '1 Hr', '1 Hr 15 Mins', '1 Hr 30 Mins', '1 Hr 45 Mins', '2 Hrs', '2.5 Hrs', '3 Hrs'];
 
@@ -31,6 +32,7 @@ export const LANGUAGES = {
       trueFalse: 'ضع علامة ✓ أمام الصحيح و ✗ أمام الخطأ :',
       whoSaid: 'من قال لمن ؟',
       wordList: 'اكتب معاني الألفاظ الآتية :',
+      quran: 'اقرأ الآيات الكريمة ثم أجب :',
     },
   },
   en: {
@@ -53,6 +55,7 @@ export const LANGUAGES = {
       trueFalse: 'Write True or False:',
       whoSaid: 'Who said to whom?',
       wordList: 'Write the meanings of the following words:',
+      quran: 'Read the following ayat and answer:',
     },
   },
 };
@@ -83,11 +86,14 @@ export const DEFAULT_LAYOUT = {
   keyQuestions: true,        // answer key repeats each question's wording
   keyAll: true,              // answer key lists every question; written ones without a model answer get the marking note
   keyNote: '',               // marking note for answers that vary ('' = the language default)
+  quranFont: 'mushaf',       // Quran text: 'mushaf' (KFGQPC Hafs, Madani mushaf style) | 'naskh' (Scheherazade New)
+  quranColors: true,         // tajweed colours on Quran text (turn off for black-and-white printing)
+  quranSize: 'normal',       // 'small' | 'normal' | 'large' | 'xlarge'
 };
 
 // Settings that only change how a paper is printed. On a paper shared between teachers each
 // teacher keeps their own, so one school's cover page or border never changes another's.
-export const PRINT_KEYS = ['coverStyle', 'pageBorder', 'showFooter', 'textSize', 'studentFields'];
+export const PRINT_KEYS = ['coverStyle', 'pageBorder', 'showFooter', 'textSize', 'studentFields', 'quranFont', 'quranColors', 'quranSize'];
 export const pickPrint = (layout) => Object.fromEntries(PRINT_KEYS.filter(k => layout?.[k] !== undefined).map(k => [k, layout[k]]));
 
 // Ready-made combinations of the print settings, so teachers don't need to set each one.
@@ -136,6 +142,7 @@ export const optionLetter = (index, language = 'lsd') => (language === 'en' ? `(
 // Question types. `icon` is a lucide icon name (see components/Icon.jsx).
 // ---------------------------------------------------------------------------
 export const QUESTION_TYPES = [
+  { type: 'quran', icon: 'BookOpenText', label: 'Quran Ayat', hint: 'Pick ayat, hide words to fill in, or ask questions on them' },
   { type: 'subjective', icon: 'PenLine', label: 'Written Answer', hint: 'Questions with answer lines' },
   { type: 'fillBlanks', icon: 'TextCursorInput', label: 'Fill in the Blanks', hint: 'Sentences with * blanks + word bank' },
   { type: 'match', icon: 'ArrowRightLeft', label: 'Match the Columns', hint: 'Pairs that get jumbled' },
@@ -158,6 +165,7 @@ export const newQuestion = (type, language = 'lsd') => {
   const L = LANGUAGES[language] || LANGUAGES.lsd;
   const base = { id: uid(), type, marks: 0, text: L.defaults[type] || '' };
   switch (type) {
+    case 'quran': return { ...base, align: 'center', showLabels: false, items: [{ id: uid(), text: '', lines: 0, answer: '' }] };
     case 'subjective': return { ...base, subQuestions: [{ id: uid(), text: '', lines: 3, answer: '' }] };
     case 'fillBlanks': return { ...base, showWordBank: true, blanks: [{ id: uid(), text: '', answer: '' }] };
     case 'match': return { ...base, pairs: [{ right: '', left: '' }] };
@@ -207,7 +215,7 @@ export const normalizeSubjects = (subjects) => list(subjects).map((sub, si) => (
         n.blanks = oldLines.map(line => ({ id: uid(), text: line, answer: '' }));
       }
     }
-    if (['mcq', 'trueFalse', 'whoSaid', 'wordList'].includes(q.type) && !n.items) n.items = [];
+    if (['mcq', 'trueFalse', 'whoSaid', 'wordList', 'quran'].includes(q.type) && !n.items) n.items = [];
     if (q.type === 'table') n.rows = Array.isArray(q.rows) && q.rows.length ? q.rows.map(r => (Array.isArray(r) ? r : Array.isArray(r?.cells) ? r.cells : [''])) : [['']];
     return n;
   }),
@@ -258,12 +266,12 @@ export const paperSizeKb = (obj) => Math.round(new Blob([JSON.stringify(obj)]).s
 // Does this question carry anything for the answer key?
 export const hasAnswers = (q) => {
   switch (q.type) {
-    case 'subjective': return (q.subQuestions || []).some(s => (s.answer || '').trim());
-    case 'fillBlanks': return (q.blanks || []).some(b => (b.answer || '').trim());
+    case 'subjective': return (q.subQuestions || []).some(s => (s.answer || '').trim() || hasQuranBlanks(s.text));
+    case 'fillBlanks': return (q.blanks || []).some(b => (b.answer || '').trim() || hasQuranBlanks(b.text));
     case 'match': return (q.pairs || []).some(p => (p.left || '').trim());
     case 'mcq': return (q.items || []).some(i => i.answer != null);
     case 'trueFalse': return (q.items || []).some(i => i.answer != null);
-    case 'whoSaid': case 'wordList': return (q.items || []).some(i => String(i.answer || '').trim());
+    case 'whoSaid': case 'wordList': case 'quran': return (q.items || []).some(i => String(i.answer || '').trim() || hasQuranBlanks(i.text));
     default: return !!(q.answer || '').trim();
   }
 };
@@ -271,6 +279,7 @@ export const hasAnswers = (q) => {
 // Does the student write anything for this question? (A plain reading passage needs no answer.)
 export const expectsAnswer = (q) => {
   switch (q.type) {
+    case 'quran': return (q.items || []).some(i => (parseInt(i.lines) || 0) > 0 || String(i.answer || '').trim() || hasQuranBlanks(i.text));
     case 'textBlock': case 'image': return (parseInt(q.lines) || 0) > 0 || !!(q.answer || '').trim();
     case 'table': return (q.rows || []).some(r => r.some(c => !(c || '').trim())) || !!(q.answer || '').trim();
     default: return true;

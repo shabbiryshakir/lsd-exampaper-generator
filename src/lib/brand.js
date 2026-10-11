@@ -9,3 +9,6 @@ export const BRAND = {
 // Shown in the app so anyone can see exactly which version they have.
 /* global __BUILD_TIME__ */
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : '';
+
+// The earlier version of the app, kept online so anyone can still use it.
+export const CLASSIC_URL = 'https://shabbiryshakir.github.io/lsd-exampaper-generator/classic/';

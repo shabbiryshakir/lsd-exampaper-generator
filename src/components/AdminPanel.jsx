@@ -3,6 +3,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import Icon from './Icon'
 import { fromCloud, normalizeHeader } from '../lib/paper'
+import { loadFeedback, setFeedbackStatus, removeFeedback, FEEDBACK_KINDS } from '../lib/feedback'
 
 // Emails that see the admin panel. Firestore rules (firestore.rules → isAdmin) must list the same emails.
 export const ADMIN_EMAILS = ['shabbiryshakir@gmail.com'];
@@ -14,10 +15,12 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString(undefined, { day: 'num
 const dayMs = 86400000;
 
 // Read-only overview of every teacher and paper (same as the admin panel on the live site).
-export default function AdminPanel({ onOpenPaper }) {
+export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'users' }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState(startTab);
+  const [fb, setFb] = useState({ list: null, error: '' });
+  const [fbFilter, setFbFilter] = useState('new');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
 
@@ -36,7 +39,19 @@ export default function AdminPanel({ onOpenPaper }) {
         : 'Could not load. Please check your internet connection.');
     }
   };
-  useEffect(() => { load(); }, []);
+  const loadFb = async () => {
+    try {
+      const list = await loadFeedback();
+      setFb({ list, error: '' });
+      onFeedbackCount?.(list.filter(x => x.status === 'new').length);
+    } catch (e) {
+      console.error('Feedback fetch error:', e);
+      setFb({ list: [], error: e?.code === 'permission-denied' ? 'Firestore rules do not allow feedback yet. Publish the latest firestore.rules in the Firebase console (Firestore Database → Rules).' : 'Could not load feedback.' });
+    }
+  };
+  useEffect(() => { load(); loadFb(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const markFb = async (item, status) => { try { await setFeedbackStatus(item.id, status); loadFb(); } catch { alert('Could not update. Please try again.'); } };
+  const deleteFb = async (item) => { if (!window.confirm('Delete this message for good?')) return; try { await removeFeedback(item.id); loadFb(); } catch { alert('Could not delete. Please try again.'); } };
 
   const view = useMemo(() => {
     if (!data) return null;
@@ -73,6 +88,7 @@ export default function AdminPanel({ onOpenPaper }) {
     };
   }, [data]);
 
+  const newCount = (fb.list || []).filter(x => x.status === 'new').length;
   const q = search.trim().toLowerCase();
   const match = (...xs) => !q || xs.some(x => String(x || '').toLowerCase().includes(q));
 
@@ -98,7 +114,7 @@ export default function AdminPanel({ onOpenPaper }) {
     <main className="max-w-5xl mx-auto px-4 pt-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-extrabold text-slate-900 inline-flex items-center gap-2"><Icon name="ShieldCheck" className="text-brand-700" />Admin</h1>
-        <button onClick={load} className="text-sm font-bold text-brand-700 inline-flex items-center gap-1"><Icon name="RotateCcw" size={16} />Refresh</button>
+        <button onClick={() => { load(); loadFb(); }} className="text-sm font-bold text-brand-700 inline-flex items-center gap-1"><Icon name="RotateCcw" size={16} />Refresh</button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -114,12 +130,42 @@ export default function AdminPanel({ onOpenPaper }) {
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex bg-slate-100 p-1 rounded-xl">
-          {[['users', 'Teachers'], ['papers', 'All papers']].map(([k, l]) => <button key={k} onClick={() => { setTab(k); setSelected(null); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold ${tab === k ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500'}`}>{l}</button>)}
+          {[['feedback', 'Feedback'], ['users', 'Teachers'], ['papers', 'All papers']].map(([k, l]) => <button key={k} onClick={() => { setTab(k); setSelected(null); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold inline-flex items-center gap-1.5 ${tab === k ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500'}`}>{l}{k === 'feedback' && newCount > 0 && <span className="bg-amber-500 text-white text-[11px] leading-none rounded-full px-1.5 py-1">{newCount}</span>}</button>)}
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search" className="flex-1 min-w-[10rem] border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" />
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 p-2 mb-10">
+        {tab === 'feedback' && (
+          <div className="p-2">
+            {fb.error && <p className="text-red-600 font-bold p-2">{fb.error}</p>}
+            <div className="flex gap-2 mb-3">
+              {[['new', `New (${newCount})`], ['done', 'Done'], ['all', 'All']].map(([k, l]) => <button key={k} onClick={() => setFbFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${fbFilter === k ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600'}`}>{l}</button>)}
+            </div>
+            {!fb.list && <div className="flex items-center gap-2 text-slate-500 p-3"><Icon name="Loader2" />Loading…</div>}
+            {fb.list && fb.list.filter(x => (fbFilter === 'all' || (fbFilter === 'new') === (x.status === 'new')) && match(x.message, x.name, x.email)).map(x => {
+              const kind = FEEDBACK_KINDS.find(k => k.id === x.kind);
+              const mail = `mailto:${x.email}?subject=${encodeURIComponent('Re: your message about LSD Paper Maker')}&body=${encodeURIComponent(`\n\n— in reply to —\n${x.message}`)}`;
+              return (
+                <div key={x.id} className="border-b border-slate-100 last:border-0 py-3 px-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${x.kind === 'problem' ? 'bg-red-50 text-red-700' : x.kind === 'idea' ? 'bg-amber-50 text-amber-700' : 'bg-brand-50 text-brand-700'}`}><Icon name={kind?.icon || 'Mail'} size={12} />{kind?.label || x.kind}</span>
+                    <span className="truncate">{x.name || 'Teacher'} · {x.email}</span>
+                    <span className="ms-auto shrink-0">{x.createdAt ? new Date(x.createdAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                  </div>
+                  <p className="text-slate-900 whitespace-pre-wrap break-words" dir="auto">{x.message}</p>
+                  {x.diag && <details className="mt-1 text-xs text-slate-500"><summary className="cursor-pointer font-bold">Technical details</summary><pre className="whitespace-pre-wrap break-words mt-1 bg-slate-50 rounded-lg p-2">{Object.entries(x.diag).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre></details>}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {x.email && <a href={mail} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-700 text-white inline-flex items-center gap-1"><Icon name="Mail" size={13} />Reply</a>}
+                    <button onClick={() => markFb(x, x.status === 'new' ? 'done' : 'new')} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 text-slate-700">{x.status === 'new' ? 'Mark as done' : 'Move back to new'}</button>
+                    <button onClick={() => deleteFb(x)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 border border-red-200">Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+            {fb.list && !fb.error && fb.list.filter(x => fbFilter === 'all' || (fbFilter === 'new') === (x.status === 'new')).length === 0 && <p className="text-slate-500 text-center py-8"><Icon name="Inbox" size={28} className="mx-auto mb-2 text-slate-300" />{fbFilter === 'new' ? 'No new messages. All caught up!' : 'Nothing here.'}</p>}
+          </div>
+        )}
         {tab === 'papers' && view.live.concat(data.papers.filter(p => p.deletedAt))
           .filter(p => { const h = normalizeHeader(p.header); return match(h.examName, h.className, p.authorName); }).map(paperRow)}
         {tab === 'users' && !selected && view.users.filter(u => match(u.name, u.email, u.school)).map(u => (

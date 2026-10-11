@@ -9,7 +9,11 @@ import Icon from './components/Icon'
 import ErrorBoundary from './components/ErrorBoundary'
 import AdminPanel, { isAdmin } from './components/AdminPanel'
 import { Wordmark, BrandMark } from './components/Brand'
-import { BRAND, BUILD_TIME } from './lib/brand'
+import Guide from './components/guide/Guide'
+import WhatsNewBody from './components/WhatsNew'
+import FeedbackForm from './components/FeedbackForm'
+import { countNewFeedback } from './lib/feedback'
+import { BRAND, BUILD_TIME, CLASSIC_URL } from './lib/brand'
 import { DEFAULT_SCHOOL_INFO, uid, LANGUAGES, langOf, defaultsFor, normalizeSubjects, normalizeHeader, normalizeLayout, paperSizeKb, cloneWithNewIds, pickPrint, answerStats, grandTotal, toCloud, fromCloud } from './lib/paper'
 import { downloadPdf, resizeImage } from './lib/pdf'
 import { WHATS_NEW, LATEST_VERSION } from './lib/whatsNew'
@@ -175,6 +179,10 @@ function App() {
   const [shownCode, setShownCode] = useState(null);   // { code, title, text, kind }
   const [sharedView, setSharedView] = useState(null); // a shared paper being looked at
   const [panelWidth, setPanelWidth] = useState(600);
+  const [guide, setGuide] = useState(null);           // { section } while the Guide is open
+  const [feedbackInit, setFeedbackInit] = useState({}); // { kind, message } to pre-fill the feedback form
+  const [adminNew, setAdminNew] = useState(0);        // unread feedback (admin only)
+  const welcomed = useRef(false);
   const pagesRef = useRef(null);
   const panelRef = useRef(null);
   const toastTimer = useRef(null);
@@ -285,6 +293,7 @@ function App() {
         // Name and email let the admin panel show who each teacher is.
         setDoc(doc(db, 'users', currentUser.uid), { displayName: currentUser.displayName || '', email: currentUser.email || '', lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
         loadUserPapers(currentUser.uid);
+        if (isAdmin(currentUser)) countNewFeedback().then(setAdminNew).catch(() => {});
       } else { setUser(null); setAppState('login'); }
     });
     // Finish a redirect sign-in (used only when a popup cannot open) and say why it failed, if it did.
@@ -621,6 +630,16 @@ function App() {
   };
 
   const openWhatsNew = () => { setModal('whatsNew'); setSeenVersion(LATEST_VERSION); store.set('seenVersion', LATEST_VERSION); };
+  const openGuide = (section) => { setModal(null); setGuide({ section }); };
+  const openFeedback = (init = {}) => { setGuide(null); setFeedbackInit(init); setModal('feedback'); };
+  const feedbackContext = { page: appState === 'editor' || appState === 'preview' ? `${appState} (${layout.language})` : appState };
+  // Everyone sees what is new once per version, right after signing in.
+  useEffect(() => {
+    if (appState !== 'dashboard' || !hasNews || welcomed.current || modal) return;
+    welcomed.current = true;
+    const t = setTimeout(() => { setModal('welcome'); setSeenVersion(LATEST_VERSION); store.set('seenVersion', LATEST_VERSION); }, 700);
+    return () => clearTimeout(t);
+  }, [appState, hasNews, modal]);
   const openHistory = async () => { setVersions(await listVersions(currentPaperId)); setModal('history'); };
 
   // ---- sharing & working together ----
@@ -724,6 +743,8 @@ function App() {
   const live = useMemo(() => JSON.parse(deferredSnapshot), [deferredSnapshot]);
 
   // ---------------------------------------------------------------------------
+  const guideOverlay = guide ? <Guide section={guide.section} onClose={() => setGuide(null)} onFeedback={user ? () => openFeedback() : undefined} onClassic={() => window.open(CLASSIC_URL, '_blank', 'noopener')} /> : null;
+
   if (appState === 'loading') {
     return <div className="min-h-screen flex flex-col items-center justify-center gap-5"><Wordmark size="lg" subtitle={BRAND.tagline} /><Icon name="Loader2" size={28} className="text-brand-600" /></div>;
   }
@@ -746,8 +767,10 @@ function App() {
           </button>
           {loginError && <p role="alert" className="text-amber-300 text-sm mt-4 text-center">{loginError}</p>}
           {!online && <p className="text-amber-300 text-sm mt-4 text-center">You are offline. Connect to the internet to sign in.</p>}
+          <button onClick={() => setGuide({ section: 'start' })} className="mx-auto mt-5 flex items-center gap-2 text-brand-100 font-bold text-sm hover:text-white"><Icon name="Compass" size={16} />See what it can do — the Guide</button>
           <p className="text-brand-200/70 text-xs text-center mt-6">A free community tool for teachers · Your papers stay private unless you share them</p>
         </div>
+        {guideOverlay}
       </div>
     );
   }
@@ -861,7 +884,7 @@ function App() {
               {!online && <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-full shrink-0 inline-flex items-center gap-1"><Icon name="WifiOff" size={12} />Offline</span>}
               <SecondaryBtn onClick={() => openCodeModal()} className="hidden sm:inline-flex px-3.5 py-2.5 text-sm rounded-xl me-1"><Icon name="Ticket" size={16} />Enter code</SecondaryBtn>
               <button onClick={() => setModal('menu')} aria-label="Menu" className="w-11 h-11 rounded-full hover:bg-slate-100 shrink-0 relative flex items-center justify-center">
-                <Avatar name={user?.displayName} size={34} />{hasNews && <span className="absolute top-1 right-1 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-white" />}
+                <Avatar name={user?.displayName} size={34} />{(hasNews || adminNew > 0) && <span className="absolute top-1 right-1 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-white" />}
               </button>
             </>
           )}
@@ -979,7 +1002,7 @@ function App() {
       )}
 
       {appState === 'admin' && isAdmin(user) && (
-        <AdminPanel onOpenPaper={(p, owner) => {
+        <AdminPanel onFeedbackCount={setAdminNew} startTab={adminNew > 0 ? 'feedback' : 'users'} onOpenPaper={(p, owner) => {
           setSharedView({ type: 'admin', data: p, title: `${p.header?.examName || 'Untitled'} — ${p.header?.className || ''}`, ownerName: owner?.name || p.authorName || 'a teacher' });
           setPreviewMode('paper'); setAppState('shared'); window.scrollTo(0, 0);
         }} />
@@ -1002,7 +1025,7 @@ function App() {
 
       {/* ---------------- EDITOR / PREVIEW ---------------- */}
       {inPaper && (
-        <ErrorBoundary key={currentPaperId} onBack={() => { store.set('session', 'null'); setAppState('dashboard'); window.scrollTo(0, 0); }}>
+        <ErrorBoundary key={currentPaperId} onReport={(msg) => openFeedback({ kind: 'problem', message: `A paper could not be shown.\n\n(${msg})\n\nWhat I was doing: ` })} onBack={() => { store.set('session', 'null'); setAppState('dashboard'); window.scrollTo(0, 0); }}>
         <main className={`p-3 sm:p-5 print:p-0 ${split ? 'max-w-[1600px] mx-auto grid grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] gap-5 items-start' : ''}`}>
           {appState === 'preview' ? (
             <>
@@ -1014,7 +1037,7 @@ function App() {
           ) : (
             <>
               <div className="print:hidden" style={{ zoom: uiZoom }}>
-                <Editor header={header} setHeader={setHeader} subjects={subjects} setSubjects={setSubjects} layout={layout} setLayout={setLayout}
+                <Editor onOpenGuide={(section) => setGuide({ section })} header={header} setHeader={setHeader} subjects={subjects} setSubjects={setSubjects} layout={layout} setLayout={setLayout}
                   activeId={activeId} setActiveId={setActiveId}
                   showAnswers={showAnswers} setShowAnswers={(v) => { setShowAnswers(v); store.set('showAnswers', v ? '1' : '0'); }}
                   templates={templates.filter(t => (t.language || 'lsd') === (layout.language || 'lsd'))} onSaveTemplate={saveTemplate} onDeleteTemplate={deleteTemplate}
@@ -1053,6 +1076,8 @@ function App() {
         </nav>
       )}
 
+      {guideOverlay}
+
       {/* ---------------- MODALS ---------------- */}
       {modal === 'menu' && (
         <Modal title="Menu" onClose={() => setModal(null)}>
@@ -1063,8 +1088,10 @@ function App() {
           <MenuItem icon="Ticket" label="Enter a code" hint="Open a shared paper or join a colleague" onClick={() => openCodeModal()} />
           <MenuItem icon="School" label="School name & logo" hint="Printed on your papers" onClick={() => setModal('settings')} />
           <MenuItem icon="Settings" label="App settings" hint="Text size, default language" onClick={() => setModal('appSettings')} />
-          {isAdmin(user) && <MenuItem icon="ShieldCheck" label="Admin" hint="All teachers, papers and storage" onClick={() => { setModal(null); setAppState('admin'); window.scrollTo(0, 0); }} />}
+          {isAdmin(user) && <MenuItem icon="ShieldCheck" label="Admin" hint={adminNew > 0 ? `${adminNew} new message${adminNew === 1 ? '' : 's'} · teachers, papers, storage` : 'Messages, teachers, papers and storage'} dot={adminNew > 0} onClick={() => { setModal(null); setAppState('admin'); window.scrollTo(0, 0); }} />}
+          <MenuItem icon="Compass" label="Guide" hint="Step by step, with pictures" onClick={() => openGuide('start')} />
           <MenuItem icon="Bell" label="What's new" onClick={openWhatsNew} dot={hasNews} />
+          <MenuItem icon="MessageSquarePlus" label="Send feedback" hint="Report a problem or share an idea" onClick={() => openFeedback()} />
           {!isStandalone() && <MenuItem icon="Smartphone" label="Install the app" onClick={handleInstall} />}
           <MenuItem icon="Info" label="Help & about" onClick={() => setModal('about')} />
           <MenuItem icon="LogOut" label="Sign out" onClick={handleLogout} danger />
@@ -1274,16 +1301,24 @@ function App() {
       )}
 
       {modal === 'whatsNew' && (
-        <Modal title="What's new" onClose={() => setModal(null)}>
-          {WHATS_NEW.map(rel => (
-            <div key={rel.version} className="mb-5">
-              <div className="flex items-center gap-3 mb-4">
-                <BrandMark size={48} />
-                <div><div className="font-extrabold text-slate-900 text-lg">{rel.title || `Version ${rel.version}`}</div><div className="text-sm text-slate-500">Version {rel.version} · {rel.date}</div></div>
-              </div>
-              <ul className="space-y-2.5">{rel.items.map(it => <li key={it} className="flex gap-2.5 text-slate-700"><span className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center mt-0.5 shrink-0"><Icon name="Check" size={13} strokeWidth={3} /></span>{it}</li>)}</ul>
-            </div>
-          ))}
+        <Modal title="What's new" wide onClose={() => setModal(null)}>
+          <WhatsNewBody onGuide={openGuide} />
+        </Modal>
+      )}
+
+      {modal === 'welcome' && (
+        <Modal title="What's new" wide onClose={() => setModal(null)} footer={
+          <div className="flex gap-3">
+            <SecondaryBtn onClick={() => setModal(null)} className="px-5 py-3">Got it</SecondaryBtn>
+            <PrimaryBtn onClick={() => openGuide('quran')} className="flex-1 py-3"><Icon name="Compass" size={18} />Take the tour</PrimaryBtn>
+          </div>}>
+          <WhatsNewBody onGuide={openGuide} />
+        </Modal>
+      )}
+
+      {modal === 'feedback' && (
+        <Modal title="Send feedback" onClose={() => setModal(null)}>
+          <FeedbackForm user={user} context={feedbackContext} initialKind={feedbackInit.kind} initialMessage={feedbackInit.message} onClose={() => setModal(null)} />
         </Modal>
       )}
 
@@ -1309,6 +1344,10 @@ function App() {
         <Modal title="Help & about" onClose={() => setModal(null)}>
           <div className="flex justify-center mb-4"><Wordmark size="lg" subtitle={BRAND.tagline} /></div>
           <p className="text-slate-600 leading-relaxed mb-5 text-center">{BRAND.description}</p>
+          <div className="grid grid-cols-2 gap-2 mb-5">
+            <SecondaryBtn onClick={() => openGuide('start')} className="py-3 text-sm"><Icon name="Compass" size={16} />Guide</SecondaryBtn>
+            <SecondaryBtn onClick={() => openFeedback()} className="py-3 text-sm"><Icon name="MessageSquarePlus" size={16} />Send feedback</SecondaryBtn>
+          </div>
           <h3 className="font-bold text-slate-800 mb-2">Quick help</h3>
           <ul className="text-slate-600 space-y-2 mb-5 list-disc pl-5">
             <li>Your work <b>saves automatically</b>, even without internet, and reopens where you left off.</li>
@@ -1318,6 +1357,8 @@ function App() {
             <li><b>Share</b>: send a copy with a code, or invite colleagues to write the paper together.</li>
             <li>Made a mistake? Tap <b>Undo</b>, or ⋮ → <b>Version history</b>.</li>
           </ul>
+          <p className="text-sm text-slate-600 mb-4">Prefer the earlier look? <a href={CLASSIC_URL} className="font-bold text-brand-700 underline">Open the classic version</a>. Your papers are the same in both.</p>
+          <p className="text-[11px] leading-relaxed text-slate-400 mb-3">Quran text and tajweed rules: Quran.com data via react-native-quran-tajweed (MIT). Surah names: quran.ws (CC BY 4.0). Fonts: KFGQPC Uthmanic Hafs (King Fahd Glorious Quran Printing Complex) and Scheherazade New (SIL Open Font License).</p>
           <div className="text-xs text-slate-400 border-t border-slate-100 pt-3 text-center">Made with care by <a href="https://shabbiryshakir.github.io" target="_blank" rel="noreferrer" className="underline">S. Shakir</a> · {BRAND.name} v{LATEST_VERSION} beta{BUILD_TIME ? ` · built ${new Date(BUILD_TIME).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div>
         </Modal>
       )}

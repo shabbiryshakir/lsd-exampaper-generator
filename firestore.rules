@@ -53,6 +53,17 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.ownerId == me();
     }
 
+    // Feedback and problem reports: any signed-in teacher can send one (as themselves); only the admin reads, updates or deletes.
+    match /feedback/{id} {
+      allow create: if signedIn()
+        && request.resource.data.userId == me()
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 3500
+        && request.resource.data.kind in ['problem', 'idea', 'question', 'praise']
+        && request.resource.data.status == 'new';
+      allow read, update, delete: if isAdmin();
+    }
+
     // Invite codes to work on a paper together.
     match /invites/{code} {
       allow get: if signedIn();

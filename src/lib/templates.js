@@ -25,6 +25,16 @@ export const BUILTIN_QUESTION_TEMPLATES = [
     id: 'b-en-grammar', builtin: true, kind: 'question', language: 'en', name: 'Grammar — choose the correct word',
     data: q('mcq', 'en', { marks: 5, items: Array.from({ length: 5 }, () => ({ id: uid(), text: '', options: ['', '', ''], answer: null })) }),
   },
+  ...['lsd', 'en'].flatMap(lang => [
+    {
+      id: `b-${lang}-quran-complete`, builtin: true, kind: 'question', language: lang, name: 'Quran — complete the ayat',
+      data: q('quran', lang, { marks: 4, text: lang === 'en' ? 'Complete the following ayat:' : 'اكمل الآيات الكريمة الآتية :', showLabels: true, items: Array.from({ length: 2 }, () => ({ id: uid(), text: '', lines: 0, answer: '' })) }),
+    },
+    {
+      id: `b-${lang}-quran-translate`, builtin: true, kind: 'question', language: lang, name: 'Quran — recite and write the meaning',
+      data: q('quran', lang, { marks: 6, text: lang === 'en' ? 'Read the ayat and write their meaning:' : 'اقرأ الآيات الكريمة واكتب معناها :', showLabels: true, items: Array.from({ length: 2 }, () => ({ id: uid(), text: '', lines: 3, answer: '' })) }),
+    },
+  ]),
 ];
 
 export const BUILTIN_PAPER_TEMPLATES = [

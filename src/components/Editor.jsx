@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import QuranPicker from './QuranPicker'
+import { describeTokens } from '../lib/quran'
 import QuestionEditor, { EditorContext, editorContextFor, Toggle } from './QuestionEditor'
 import Icon from './Icon'
 import { TIME_OPTIONS, QUESTION_TYPES, LANGUAGES, langOf, newQuestion, subjectTotal, grandTotal, uid, questionNumbers, parseMarks, cloneWithNewIds, PAGE_PRESETS, presetOf, answerStats } from '../lib/paper'
@@ -114,7 +116,7 @@ function TypePicker({ onPick, onTemplate, onClose, templates, onDeleteTemplate, 
 
 // Short one-line summary of a question for its folded card.
 const summarize = (q) => {
-  const first = q.text || q.content || q.subQuestions?.[0]?.text || q.items?.[0]?.text || q.blanks?.[0]?.text || q.pairs?.[0]?.right || q.rows?.[0]?.join(' · ') || q.caption || '';
+  const first = describeTokens((q.type === 'quran' && q.items?.[0]?.text) || q.text || q.content || q.subQuestions?.[0]?.text || q.items?.[0]?.text || q.blanks?.[0]?.text || '') || q.pairs?.[0]?.right || q.rows?.[0]?.join(' · ') || q.caption || '';
   return first.trim() || '—';
 };
 
@@ -174,7 +176,7 @@ function StudentFieldsEditor({ fields, onChange }) {
   );
 }
 
-export default function Editor({ header, setHeader, subjects, setSubjects, layout, setLayout, activeId, setActiveId, showAnswers, setShowAnswers, templates, onSaveTemplate, onDeleteTemplate, onMakeDefaultStyle, members = [], myUid, hideJump = false }) {
+export default function Editor({ header, setHeader, subjects, setSubjects, layout, setLayout, activeId, setActiveId, showAnswers, setShowAnswers, templates, onSaveTemplate, onDeleteTemplate, onMakeDefaultStyle, members = [], myUid, hideJump = false, onOpenGuide }) {
   const [openSection, setOpenSection] = useState(null);
   const [moreStyle, setMoreStyle] = useState(false);
   const isShared = members.length > 1;
@@ -182,6 +184,8 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
   const stats = answerStats(subjects);
   const [pickerFor, setPickerFor] = useState(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [quranDlg, setQuranDlg] = useState(null); // { initial, onDone } while the ayah picker is open
+  const usesQuran = JSON.stringify(subjects).includes('{{q');
   const L = langOf(layout);
   const onHeader = (e) => setHeader({ ...header, [e.target.name]: e.target.value });
   const setL = (k, v) => setLayout({ ...layout, [k]: v });
@@ -226,11 +230,12 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
     PAGE_PRESETS.find(p => p.id === preset)?.label || 'Custom',
     layout.pageBorder ? 'Border' : null,
     layout.showFooter ? 'Footer' : null,
+    usesQuran ? (layout.quranFont === 'naskh' ? 'Naskh ayat' : 'Mushaf ayat') + (layout.quranColors === false ? '' : ' + tajweed') : null,
     { small: 'Small text', large: 'Large text' }[layout.textSize],
   ].filter(Boolean).join(' · ');
 
   return (
-    <EditorContext.Provider value={editorContextFor(layout, showAnswers)}>
+    <EditorContext.Provider value={{ ...editorContextFor(layout, showAnswers), openQuran: setQuranDlg }}>
       <div className="max-w-3xl mx-auto space-y-3">
         <Section icon="FileText" title="Paper details" summary={`${header.className} · ${header.examName} ${header.hijriYear} · ${header.time} · ${grandTotal(subjects)} marks`} open={openSection === 'details'} onToggle={() => setOpenSection(openSection === 'details' ? null : 'details')}>
           <Row label="Paper language">
@@ -276,6 +281,15 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
           <Row label="Text size on paper">
             <Seg value={layout.textSize} onChange={(v) => setL('textSize', v)} options={[{ value: 'small', label: 'Small' }, { value: 'normal', label: 'Normal' }, { value: 'large', label: 'Large' }]} />
           </Row>
+          {usesQuran && (<>
+              <Row label="Quran text (ayat)">
+                <div className="flex flex-col gap-3">
+                  <Seg value={layout.quranFont === 'naskh' ? 'naskh' : 'mushaf'} onChange={(v) => setL('quranFont', v)} options={[{ value: 'mushaf', label: 'Mushaf (Madani)' }, { value: 'naskh', label: 'Clear Naskh' }]} />
+                  <Seg value={layout.quranSize || 'normal'} onChange={(v) => setL('quranSize', v)} options={[{ value: 'small', label: 'Small' }, { value: 'normal', label: 'Normal' }, { value: 'large', label: 'Large' }, { value: 'xlarge', label: 'Extra large' }]} />
+                  <Toggle checked={layout.quranColors !== false} onChange={(v) => setL('quranColors', v)}>Tajweed colours (switch off for black-and-white printing)</Toggle>
+                </div>
+              </Row>
+          </>)}
           <button type="button" onClick={() => setMoreStyle(!moreStyle)} className="w-full flex items-center justify-between py-3 text-sm font-bold text-slate-600">
             <span>Customise numbering, cover & extras</span><Icon name={moreStyle ? 'ChevronUp' : 'ChevronDown'} size={18} />
           </button>
@@ -299,6 +313,15 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
                   ? [{ value: 'abjad', label: 'a) b) c)' }, { value: 'numeric', label: '1) 2) 3)' }]
                   : [{ value: 'abjad', label: 'الف) ب) ج)', font: 'font-arabic text-lg' }, { value: 'numeric', label: '١) ٢) ٣)', font: 'font-arabic text-lg' }]} />
               </Row>
+              {!usesQuran && (<>
+              <Row label="Quran text (ayat)">
+                <div className="flex flex-col gap-3">
+                  <Seg value={layout.quranFont === 'naskh' ? 'naskh' : 'mushaf'} onChange={(v) => setL('quranFont', v)} options={[{ value: 'mushaf', label: 'Mushaf (Madani)' }, { value: 'naskh', label: 'Clear Naskh' }]} />
+                  <Seg value={layout.quranSize || 'normal'} onChange={(v) => setL('quranSize', v)} options={[{ value: 'small', label: 'Small' }, { value: 'normal', label: 'Normal' }, { value: 'large', label: 'Large' }, { value: 'xlarge', label: 'Extra large' }]} />
+                  <Toggle checked={layout.quranColors !== false} onChange={(v) => setL('quranColors', v)}>Tajweed colours (switch off for black-and-white printing)</Toggle>
+                </div>
+              </Row>
+              </>)}
               <Row label="Extras">
                 <div className="flex flex-col gap-3">
                   <Toggle checked={layout.pageBorder} onChange={(v) => setL('pageBorder', v)}>Border around every page</Toggle>
@@ -390,6 +413,11 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
               </div>
             ))}
           </Sheet>
+        )}
+
+        {quranDlg && (
+          <QuranPicker onHelp={onOpenGuide ? () => onOpenGuide('quran-pick') : undefined} initial={quranDlg.initial} quranFont={layout.quranFont === 'naskh' ? 'naskh' : 'mushaf'} onClose={() => setQuranDlg(null)}
+            onDone={(tok) => { quranDlg.onDone(tok); setQuranDlg(null); }} />
         )}
 
         {pickerFor && (

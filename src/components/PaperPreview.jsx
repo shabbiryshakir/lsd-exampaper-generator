@@ -1,4 +1,6 @@
 import { useLayoutEffect, useEffect, useRef, useState, forwardRef } from 'react'
+import { rich, richPieces } from './QuranText'
+import { useQuran, blankedWords, hasQuranBlanks } from '../lib/quran'
 import { subjectTotal, grandTotal, subLabel, questionLabel, parseMarks, questionNumbers, langOf, optionLetter, hasAnswers, expectsAnswer } from '../lib/paper'
 
 // Small safety margin (px) left empty at the bottom of each page.
@@ -16,13 +18,13 @@ const Lines = ({ n, keyPrefix, subject, out }) => {
   for (let j = 0; j < n; j++) out.push({ key: `${keyPrefix}-l${j}`, subject, node: <div className="answer-line" /> });
 };
 
-const optionRow = (options, optionLayout) => {
+const optionRow = (options, optionLayout, R = rich) => {
   const opts = (options || []).filter(o => (o || '').trim() !== '');
   if (opts.length === 0) return null;
   return (
     <div className={`flex ${optionLayout === 'column' ? 'flex-col' : 'flex-wrap'} gap-x-8 gap-y-1 ps-[2.2em]`}>
       {opts.map((o, k) => (
-        <span key={k} className="whitespace-nowrap"><span className="inline-block w-[0.9em] h-[0.9em] border-2 border-black rounded-full me-2 align-middle" />{o}</span>
+        <span key={k} className="whitespace-nowrap"><span className="inline-block w-[0.9em] h-[0.9em] border-2 border-black rounded-full me-2 align-middle" />{R(o)}</span>
       ))}
     </div>
   );
@@ -38,7 +40,7 @@ const subjectHeader = (sub, L, keyPrefix, extra = {}) => ({
   ),
 });
 
-const questionHeader = (q, num, layout, L, key, subject) => {
+const questionHeader = (q, num, layout, L, key, subject, reveal = false) => {
   const hasText = (q.text || '').trim() !== '';
   const showMarks = !q.hideMarks && parseMarks(q.marks) > 0;
   if (!hasText && num === null && !showMarks) return null;
@@ -46,9 +48,9 @@ const questionHeader = (q, num, layout, L, key, subject) => {
     key, subject, keepWithNext: true,
     node: (
       <div className="flex justify-between items-start gap-4 pt-2 pb-2 font-bold">
-        <p className="underline underline-offset-[6px] decoration-1 leading-relaxed whitespace-pre-wrap">
-          {num !== null && <span className="me-2">{questionLabel(num, layout.questionLabel, layout.language)}</span>}
-          {hasText && q.text}
+        <p className="leading-relaxed whitespace-pre-wrap">
+          {num !== null && <span className="me-2 underline underline-offset-[6px] decoration-1">{questionLabel(num, layout.questionLabel, layout.language)}</span>}
+          {hasText && rich(q.text, { reveal, plainClass: 'underline underline-offset-[6px] decoration-1' })}
         </p>
         {showMarks && <span className="font-bold whitespace-nowrap underline underline-offset-[6px]">({L.num(parseMarks(q.marks))})</span>}
       </div>
@@ -57,6 +59,7 @@ const questionHeader = (q, num, layout, L, key, subject) => {
 };
 
 export function buildBlocks(subjects, layout) {
+  const R = (t) => rich(t);
   const L = langOf(layout);
   const lang = layout.language;
   const out = [];
@@ -71,7 +74,28 @@ export function buildBlocks(subjects, layout) {
       const head = questionHeader(q, numbers[qIndex], layout, L, k, subject);
       if (head) out.push(head);
 
-      if (q.type === 'subjective') {
+      if (q.type === 'quran') {
+        const center = q.align !== 'start';
+        (q.items || []).forEach((it, i) => {
+          const lines = Math.max(0, parseInt(it.lines) || 0);
+          if ((it.text || '').trim() !== '') {
+            // A passage of several ayat is split into one block per ayah, so it can run over more than one page.
+            richPieces(it.text).forEach((piece, n, all) => out.push({
+              key: `${k}-qi${it.id}${n ? `-${n}` : ''}`, subject, keepWithNext: n === all.length - 1 && lines > 0,
+              node: (
+                <div className={`flex gap-2 items-start px-3 pt-1 whitespace-pre-wrap ${center ? 'justify-center text-center' : ''}`}>
+                  {q.showLabels && <span className="font-bold whitespace-nowrap">{n === 0 ? subLabel(i, layout.subNumbering, lang) : <span className="invisible">{subLabel(i, layout.subNumbering, lang)}</span>}</span>}
+                  <p>{piece}</p>
+                </div>
+              ),
+            }));
+          }
+          Lines({ n: lines, keyPrefix: `${k}-qi${it.id}`, subject, out });
+          out.push({ key: `${k}-qi${it.id}-gap`, subject, node: <div className="h-2" /> });
+        });
+      }
+
+      else if (q.type === 'subjective') {
         (q.subQuestions || []).forEach((sq, i) => {
           const lines = Math.max(0, parseInt(sq.lines) || 0);
           if ((sq.text || '').trim() !== '') {
@@ -80,7 +104,7 @@ export function buildBlocks(subjects, layout) {
               node: (
                 <div className="flex gap-2 items-start px-3 pt-1 whitespace-pre-wrap">
                   <span className="font-bold whitespace-nowrap">{subLabel(i, layout.subNumbering, lang)}</span>
-                  <p>{sq.text}</p>
+                  <p>{R(sq.text)}</p>
                 </div>
               ),
             });
@@ -91,7 +115,7 @@ export function buildBlocks(subjects, layout) {
       }
 
       else if (q.type === 'fillBlanks') {
-        const bank = (q.blanks || []).map(b => (b.answer || '').trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, lang === 'en' ? 'en' : 'ar'));
+        const bank = (q.blanks || []).flatMap(b => [(b.answer || '').trim(), ...blankedWords(b.text)]).filter(Boolean).sort((a, b) => a.localeCompare(b, lang === 'en' ? 'en' : 'ar'));
         if (q.showWordBank !== false && bank.length > 0) {
           out.push({
             key: `${k}-bank`, subject, keepWithNext: true,
@@ -111,7 +135,7 @@ export function buildBlocks(subjects, layout) {
               <p className="px-3 py-1 leading-[2.4em] whitespace-pre-wrap">
                 <span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>
                 {(b.text || '').split('*').map((part, j, arr) => (
-                  <span key={j}>{part}{j !== arr.length - 1 && <span className="blank-gap" />}</span>
+                  <span key={j}>{R(part)}{j !== arr.length - 1 && <span className="blank-gap" />}</span>
                 ))}
               </p>
             ),
@@ -129,9 +153,9 @@ export function buildBlocks(subjects, layout) {
             node: (
               <div className="px-2">
                 <div className={`grid grid-cols-[5fr_2fr_5fr] border-x border-b border-black ${i === 0 ? 'border-t' : ''}`}>
-                  <div className="px-3 py-1 border-e border-black"><span className="font-bold me-2">{L.num(i + 1)}.</span>{pair.right}</div>
+                  <div className="px-3 py-1 border-e border-black"><span className="font-bold me-2">{L.num(i + 1)}.</span>{R(pair.right)}</div>
                   <div className="py-1 border-e border-black text-center text-gray-400 font-sans">[&nbsp;&nbsp;&nbsp;&nbsp;]</div>
-                  <div className="px-3 py-1">{jumbled?.left}</div>
+                  <div className="px-3 py-1">{R(jumbled?.left)}</div>
                 </div>
                 {i === n - 1 && <div className="h-3" />}
               </div>
@@ -146,8 +170,8 @@ export function buildBlocks(subjects, layout) {
             key: `${k}-i${it.id}`, subject,
             node: (
               <div className="px-3 py-1">
-                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, layout.subNumbering, lang)}</span>{it.text}</p>
-                {optionRow(it.options, q.optionLayout)}
+                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, layout.subNumbering, lang)}</span>{R(it.text)}</p>
+                {optionRow(it.options, q.optionLayout, R)}
               </div>
             ),
           });
@@ -160,7 +184,7 @@ export function buildBlocks(subjects, layout) {
             key: `${k}-i${it.id}`, subject,
             node: (
               <div className="flex justify-between items-start gap-4 px-3 py-1">
-                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>{it.text}</p>
+                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>{R(it.text)}</p>
                 {q.tfStyle === 'words'
                   ? <span className="whitespace-nowrap">( {L.t.true} / {L.t.false} )</span>
                   : <span className="inline-block w-[2.2em] h-[1.4em] border-2 border-black shrink-0 mt-1" />}
@@ -173,12 +197,12 @@ export function buildBlocks(subjects, layout) {
       else if (q.type === 'whoSaid') {
         const labels = q.saidLabels || {};
         (q.items || []).forEach((it, i) => {
-          const opts = optionRow(it.options, 'row');
+          const opts = optionRow(it.options, 'row', R);
           out.push({
             key: `${k}-i${it.id}`, subject,
             node: (
               <div className="px-3 py-1">
-                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>{lang === 'en' ? `“${it.text}”` : `« ${it.text} »`}</p>
+                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>{lang === 'en' ? <>“{R(it.text)}”</> : <>« {R(it.text)} »</>}</p>
                 {opts || (
                   <div className="flex gap-8 ps-[2.2em] mt-1">
                     <span className="flex-1 flex items-end">{labels.speaker || L.t.speaker} :<span className="flex-1 border-b-2 border-dotted border-gray-600 ms-2" /></span>
@@ -202,7 +226,7 @@ export function buildBlocks(subjects, layout) {
               <div className="grid gap-x-8 px-3 py-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
                 {row.map((it, c) => (
                   <div key={it.id} className="flex items-end">
-                    <span className="whitespace-nowrap"><span className="font-bold me-1">{subLabel(r + c, 'numeric', lang)}</span> {it.text} -</span>
+                    <span className="whitespace-nowrap"><span className="font-bold me-1">{subLabel(r + c, 'numeric', lang)}</span> {R(it.text)} -</span>
                     <span className="flex-1 border-b-2 border-black ms-2 mb-[0.3em] min-w-[2em]" />
                   </div>
                 ))}
@@ -215,7 +239,7 @@ export function buildBlocks(subjects, layout) {
 
       else if (q.type === 'textBlock') {
         (q.content || '').split('\n').forEach((para, i) => {
-          out.push({ key: `${k}-t${i}`, subject, node: <p className="px-3 whitespace-pre-wrap min-h-[1.6em]">{para}</p> });
+          out.push({ key: `${k}-t${i}`, subject, node: <p className="px-3 whitespace-pre-wrap min-h-[1.6em]">{R(para)}</p> });
         });
         Lines({ n: Math.max(0, parseInt(q.lines) || 0), keyPrefix: k, subject, out });
         out.push({ key: `${k}-gap`, subject, node: <div className="h-2" /> });
@@ -232,7 +256,7 @@ export function buildBlocks(subjects, layout) {
               <div className="px-2">
                 <div className={`grid border-x border-b border-black ${r === 0 ? 'border-t' : ''} ${head ? 'bg-gray-100 font-bold' : ''}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
                   {Array.from({ length: cols }, (_, c) => (
-                    <div key={c} className={`px-2 py-1 min-h-[2.2em] whitespace-pre-wrap text-center ${c < cols - 1 ? 'border-e border-black' : ''}`}>{row[c] || ''}</div>
+                    <div key={c} className={`px-2 py-1 min-h-[2.2em] whitespace-pre-wrap text-center ${c < cols - 1 ? 'border-e border-black' : ''}`}>{R(row[c] || '')}</div>
                   ))}
                 </div>
                 {r === rows.length - 1 && <div className="h-3" />}
@@ -249,7 +273,7 @@ export function buildBlocks(subjects, layout) {
             node: (
               <figure className="px-3 py-2 flex flex-col items-center">
                 <img src={q.src} alt="" style={{ width: `${Math.min(100, Math.max(15, parseInt(q.width) || 60))}%` }} className="object-contain max-h-[200mm]" />
-                {(q.caption || '').trim() && <figcaption className="text-[0.85em] mt-1">{q.caption}</figcaption>}
+                {(q.caption || '').trim() && <figcaption className="text-[0.85em] mt-1">{R(q.caption)}</figcaption>}
               </figure>
             ),
           });
@@ -269,6 +293,7 @@ export function buildBlocks(subjects, layout) {
 // in one compact line each, written answers with the model answer or marking points, and
 // written questions without one get the marking note, so the key is complete for checking.
 export function buildKeyBlocks(subjects, layout) {
+  const R = (t) => rich(t, { reveal: true });
   const L = langOf(layout);
   const lang = layout.language;
   const all = layout.keyAll !== false;
@@ -287,18 +312,18 @@ export function buildKeyBlocks(subjects, layout) {
       </div>
     ),
   });
-  const ans = (t) => <span className="font-bold">{t}</span>;
+  const ans = (t) => <span className="font-bold">{typeof t === 'string' ? R(t) : t}</span>;
   const vary = <span className="italic text-gray-600 text-[0.9em]">{note}</span>;
   // "The sun rises in the *." -> the sentence with the answer written into the gap.
   const filled = (text, answer) => {
     const parts = (text || '').split('*');
     const answers = parts.length > 2 ? (answer || '').split(/\s*[/،,]\s*/) : [answer];
-    return parts.map((p, j) => <span key={j}>{p}{j < parts.length - 1 && <span className="font-bold underline underline-offset-4">{answers[j] ?? answers[0] ?? ''}</span>}</span>);
+    return parts.map((p, j) => <span key={j}>{R(p)}{j < parts.length - 1 && <span className="font-bold underline underline-offset-4">{answers[j] ?? answers[0] ?? ''}</span>}</span>);
   };
 
   (subjects || []).forEach((sub) => {
     // Written questions are always listed (with the note if no model answer); objective ones once answered.
-    const written = (q) => ['subjective', 'textBlock', 'table', 'image'].includes(q.type);
+    const written = (q) => ['subjective', 'quran', 'textBlock', 'table', 'image'].includes(q.type);
     const questions = (sub.questions || []).filter(q => hasAnswers(q) || (all && written(q) && expectsAnswer(q)));
     if (questions.length === 0) return;
     out.push(subjectHeader(sub, L, 'k'));
@@ -308,21 +333,31 @@ export function buildKeyBlocks(subjects, layout) {
       const T = sub.title;
       const firstBlock = out.length;
       const num = numbers[(sub.questions || []).indexOf(q)];
-      const head = questionHeader(withQuestions ? q : { ...q, text: '' }, num ?? null, layout, L, k, T);
+      const head = questionHeader(withQuestions ? q : { ...q, text: '' }, num ?? null, layout, L, k, T, true);
       if (head) out.push(head);
       if (q.type === 'subjective') (q.subQuestions || []).forEach((sq, i) => {
         const a = (sq.answer || '').trim();
-        if (a || all) line(`${k}-${sq.id}`, T, subLabel(i, layout.subNumbering, lang), a ? ans(a) : vary, withQuestions && (sq.text || '').trim() ? sq.text : null);
+        if (a || all) line(`${k}-${sq.id}`, T, subLabel(i, layout.subNumbering, lang), a ? ans(a) : vary, withQuestions && (sq.text || '').trim() ? R(sq.text) : null);
       });
       if (q.type === 'fillBlanks') (q.blanks || []).forEach((b, i) => {
         const a = (b.answer || '').trim();
-        if (a) line(`${k}-${b.id}`, T, subLabel(i, 'numeric', lang), withQuestions && (b.text || '').includes('*') ? filled(b.text, a) : ans(a));
+        const fromAyah = hasQuranBlanks(b.text);
+        if (a || fromAyah) line(`${k}-${b.id}`, T, subLabel(i, 'numeric', lang), (withQuestions || fromAyah) && (b.text || '').includes('*') || fromAyah ? filled(b.text, a) : ans(a));
       });
-      if (q.type === 'match') (q.pairs || []).forEach((p, i) => line(`${k}-${i}`, T, `${L.num(i + 1)}.`, <>{p.right}<span className="mx-3 font-sans">⟷</span>{ans(p.left)}</>));
-      if (q.type === 'mcq') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, T, subLabel(i, layout.subNumbering, lang), ans(`${optionLetter(it.answer, lang)} ${(it.options || [])[it.answer] || ''}`), withQuestions && (it.text || '').trim() ? it.text : null));
-      if (q.type === 'trueFalse') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), ans(it.answer ? `✓ ${L.t.true}` : `✗ ${L.t.false}`), withQuestions && (it.text || '').trim() ? it.text : null));
-      if (q.type === 'whoSaid') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), ans(it.answer), withQuestions && (it.text || '').trim() ? (lang === 'en' ? `“${it.text}”` : `« ${it.text} »`) : null));
-      if (q.type === 'wordList') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), <>{it.text} — {ans(it.answer)}</>));
+      if (q.type === 'match') (q.pairs || []).forEach((p, i) => line(`${k}-${i}`, T, `${L.num(i + 1)}.`, <>{R(p.right)}<span className="mx-3 font-sans">⟷</span>{ans(p.left)}</>));
+      if (q.type === 'mcq') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, T, subLabel(i, layout.subNumbering, lang), ans(`${optionLetter(it.answer, lang)} ${(it.options || [])[it.answer] || ''}`), withQuestions && (it.text || '').trim() ? R(it.text) : null));
+      if (q.type === 'trueFalse') (q.items || []).forEach((it, i) => it.answer != null && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), ans(it.answer ? `✓ ${L.t.true}` : `✗ ${L.t.false}`), withQuestions && (it.text || '').trim() ? R(it.text) : null));
+      if (q.type === 'whoSaid') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), ans(it.answer), withQuestions && (it.text || '').trim() ? (lang === 'en' ? <>“{R(it.text)}”</> : <>« {R(it.text)} »</>) : null));
+      if (q.type === 'wordList') (q.items || []).forEach((it, i) => String(it.answer || '').trim() && line(`${k}-${it.id}`, T, subLabel(i, 'numeric', lang), <>{R(it.text)} — {ans(it.answer)}</>));
+      if (q.type === 'quran') (q.items || []).forEach((it, i) => {
+        const a = (it.answer || '').trim();
+        const hidden = hasQuranBlanks(it.text);
+        if (!a && !hidden && !(all && (parseInt(it.lines) || 0) > 0)) return;
+        if (hidden && !a) richPieces(it.text, { reveal: true }).forEach((piece, n) => line(`${k}-${it.id}-${n}`, T, n === 0 && q.showLabels ? subLabel(i, layout.subNumbering, lang) : null, piece, null));
+        else line(`${k}-${it.id}`, T, q.showLabels ? subLabel(i, layout.subNumbering, lang) : null,
+          a ? ans(a) : vary,
+          withQuestions && (it.text || '').trim() && (a || !hidden) ? R(it.text) : null);
+      });
       if (['textBlock', 'table', 'image'].includes(q.type)) {
         const a = (q.answer || '').trim();
         line(`${k}-a`, T, null, a ? ans(a) : vary);
@@ -466,7 +501,7 @@ const CompactHeader = ({ header, school, subjects, fields, L }) => (
 const Sheet = forwardRef(({ layout, className = '', children }, ref) => {
   const L = langOf(layout);
   return (
-    <div ref={ref} className={`a4-sheet size-${layout.textSize || 'normal'} lang-${layout.language || 'lsd'} ${className}`} dir={L.dir}>
+    <div ref={ref} className={`a4-sheet size-${layout.textSize || 'normal'} lang-${layout.language || 'lsd'} qf-${layout.quranFont === 'naskh' ? 'naskh' : 'mushaf'} qs-${layout.quranSize || 'normal'} ${layout.quranColors === false ? 'q-plain' : ''} ${className}`} dir={L.dir}>
       {layout.pageBorder && <div className="sheet-border" />}
       {children}
     </div>
@@ -485,6 +520,14 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
   const restTplRef = useRef(null);
   const [measure, setMeasure] = useState(null);
   const [fontsReady, setFontsReady] = useState(false);
+  const usesQuran = JSON.stringify(subjects).includes('{{q');
+  const { ready: quranLoaded } = useQuran(usesQuran);
+  const [quranFontsReady, setQuranFontsReady] = useState(false);
+  // The Quran fonts (about 600 KB) are only fetched for papers that actually hold ayat.
+  useEffect(() => {
+    if (!usesQuran || !document.fonts) return;
+    Promise.all([document.fonts.load('20px "QuranMushaf"'), document.fonts.load('20px "QuranNaskh"')]).catch(() => {}).finally(() => setQuranFontsReady(true));
+  }, [usesQuran]);
   const fitZoom = () => Math.min(1, ((fitWidth || window.innerWidth) - (fitWidth ? 40 : 16)) / (210 * 96 / 25.4));
   const [zoom, setZoom] = useState(fitZoom);
   const [imgTick, setImgTick] = useState(0); // re-measure once pictures finish loading
@@ -506,7 +549,7 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
     return () => window.removeEventListener('resize', onResize);
   }, [fitWidth]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signature = JSON.stringify([mode, subjects, layout, header, !!school?.logo, school?.nameAr, fontsReady, imgTick]);
+  const signature = JSON.stringify([mode, subjects, layout, header, !!school?.logo, school?.nameAr, fontsReady, imgTick, quranLoaded, quranFontsReady]);
   useLayoutEffect(() => {
     if (!measureRef.current) return;
     const heights = {};

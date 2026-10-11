@@ -10,6 +10,22 @@
   font-display: block;
 }
 
+/* Quran fonts: KFGQPC Hafs (Madani mushaf style) and Scheherazade New (open, clear naskh). */
+@font-face {
+  font-family: "QuranMushaf";
+  src: url("/fonts/UthmanicHafs.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "QuranNaskh";
+  src: url("/fonts/ScheherazadeNew.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
 }
@@ -35,6 +51,67 @@ body {
 .font-arabic {
   font-family: "KanzAlMarjaan", Arial, sans-serif !important;
 }
+
+/* =========================================================================
+   QURAN TEXT  (ayat inserted from the Quran picker, in any text box)
+   ========================================================================= */
+.quran-scope, .a4-sheet { --quran-font: "QuranMushaf", "QuranNaskh", serif; --quran-scale: 1.2; }
+.quran-scope.qf-naskh, .a4-sheet.qf-naskh { --quran-font: "QuranNaskh", "QuranMushaf", serif; --quran-scale: 1.18; }
+.a4-sheet.qs-large { --quran-scale: 1.4; }
+.a4-sheet.qs-xlarge { --quran-scale: 1.65; }
+.a4-sheet.qs-small { --quran-scale: 1.05; }
+
+.quran {
+  font-family: var(--quran-font) !important;
+  font-size: calc(1em * var(--quran-scale));
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1.9;
+  unicode-bidi: isolate;
+  text-decoration: none;
+  letter-spacing: 0;
+  word-spacing: 0.08em;
+}
+.quran .q-end { font-size: 0.92em; padding: 0 0.1em; }
+.q-pending, .q-missing { font-family: Arial, sans-serif; font-size: 0.8em; color: #94a3b8; }
+.q-missing { color: #dc2626; }
+
+/* A hidden word: a line as wide as the word itself (the word stays in place but is not drawn). */
+.quran .q-blank {
+  display: inline-block;
+  min-width: 2.2em;
+  border-bottom: 2px solid #000;
+  text-align: center;
+  line-height: 1.55;
+  margin: 0 0.12em;
+  color: transparent !important;
+  user-select: none;
+}
+.quran .q-blank * { color: transparent !important; }
+/* In the answer key the hidden word is shown, underlined. */
+.quran .q-blank.q-revealed { color: inherit !important; border-bottom-style: dotted; }
+.quran .q-blank.q-revealed * { color: inherit !important; }
+
+/* Words in the ayah picker: tap to hide or show. */
+.q-pick { cursor: pointer; border-radius: 8px; padding: 0 0.12em; border-bottom: 2px solid transparent; }
+.q-pick:hover { background: #effaf8; }
+.q-pick.q-pick-on { background: #fef3c7; border-bottom-color: #d97706; color: #92400e; }
+.q-pick.q-pick-on * { color: #92400e !important; }
+
+/* Tajweed colours (the usual Madani-mushaf scheme). Turned off with "Tajweed colours" in the page style. */
+.tj-madda_normal { color: #c47a00; }
+.tj-madda_permissible { color: #e8710a; }
+.tj-madda_obligatory { color: #e0431a; }
+.tj-madda_necessary { color: #c62828; }
+.tj-qalaqah { color: #0f9d8e; }
+.tj-tafkhim { color: #0b6bdc; }
+.tj-ghunnah, .tj-idgham_ghunnah { color: #2e9a3a; }
+.tj-ikhafa, .tj-ikhafa_shafawi, .tj-idgham_shafawi { color: #4aa84f; }
+.tj-iqlab { color: #14907f; }
+.tj-idgham_mutajanisayn { color: #6b46c1; }
+.tj-idgham_mutaqaribayn { color: #4c5bbf; }
+.tj-idgham_wo_ghunnah, .tj-ham_wasl, .tj-laam_shamsiyah, .tj-slnt { color: #9aa0a6; }
+.q-plain .tj, .q-plain .tj * { color: inherit !important; }
 
 /* Hides default browser arrows on number inputs */
 input[type='number']::-webkit-inner-spin-button,

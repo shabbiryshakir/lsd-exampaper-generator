@@ -1,35 +1,91 @@
 import { useState, useRef, useLayoutEffect, createContext, useContext } from 'react'
 import { uid, subLabel, langOf } from '../lib/paper'
 import { resizeImage } from '../lib/pdf'
+import { parseRich, tokenTitle, useQuran } from '../lib/quran'
+import { QuranRun } from './QuranText'
 import Icon from './Icon'
 
 // Paper language + "show answers" for every input inside the editor.
-export const EditorContext = createContext({ dir: 'rtl', font: 'font-arabic', lang: 'lsd', answers: false, L: langOf({}) });
+export const EditorContext = createContext({ dir: 'rtl', font: 'font-arabic', lang: 'lsd', answers: false, L: langOf({}), quranFont: 'mushaf', openQuran: () => {} });
 export const editorContextFor = (layout, answers) => {
   const L = langOf(layout);
-  return { dir: L.dir, font: L.fontClass, lang: layout.language || 'lsd', answers, L };
+  return { dir: L.dir, font: L.fontClass, lang: layout.language || 'lsd', answers, L, quranFont: layout.quranFont === 'naskh' ? 'naskh' : 'mushaf', openQuran: () => {} };
 };
 const useUI = () => useContext(EditorContext);
 
 const baseInput = 'w-full border border-slate-300 px-3 py-2 rounded-xl text-xl leading-relaxed bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none';
 const answerInput = 'w-full border border-amber-300 bg-amber-50 px-3 py-2 rounded-xl text-lg focus:border-amber-500 focus:outline-none placeholder:text-amber-600/60';
 
+// Puts an ayah token into a text at the caret, with a space on each side when needed.
+const insertToken = (value, pos, token) => {
+  const at = Math.min(Math.max(pos ?? value.length, 0), value.length);
+  const before = value.slice(0, at), after = value.slice(at);
+  return `${before}${before && !/\s$/.test(before) ? ' ' : ''}${token}${after && !/^\s/.test(after) ? ' ' : ''}${after}`;
+};
+
+// What the teacher sees under a text box that holds ayat: the real Quran text, with Change and Remove.
+function TokenChips({ value, onChange }) {
+  const UI = useUI();
+  useQuran();
+  const tokens = parseRich(value).filter(p => p.token);
+  return (
+    <div className="mt-1.5 space-y-1.5" dir="ltr">
+      {tokens.map((p, i) => (
+        <div key={`${p.raw}-${i}`} className="bg-brand-50 border border-brand-100 rounded-xl ps-3 pe-1 py-1.5">
+          <div className="flex items-center gap-2 text-xs font-bold text-brand-800">
+            <Icon name="BookOpenText" size={14} />
+            <span className="flex-1 min-w-0 leading-tight">{tokenTitle(p.token)}{p.token.blanks.size ? ` · ${p.token.blanks.size} hidden` : ''}</span>
+            <button type="button" onClick={() => UI.openQuran({ initial: p.token, onDone: (tok) => onChange(value.replace(p.raw, tok)) })} className="px-2.5 py-1.5 rounded-lg bg-white border border-brand-200 hover:bg-brand-100">Change</button>
+            <button type="button" aria-label="Remove ayat" onClick={() => onChange(value.replace(p.raw, '').replace(/ {2,}/g, ' '))} className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-white flex items-center justify-center"><Icon name="X" size={16} /></button>
+          </div>
+          <div className={`quran-scope qf-${UI.quranFont} text-slate-900 mt-0.5 max-h-24 overflow-hidden`} style={{ fontSize: 22 }}><QuranRun token={p.token} reveal /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The little book button inside a text box: opens the ayah picker and inserts at the caret.
+function QuranButton({ value, onChange, caret }) {
+  const UI = useUI();
+  return (
+    <button type="button" aria-label="Insert ayat from the Quran" title="Insert ayat from the Quran" onClick={() => UI.openQuran({ onDone: (tok) => onChange(insertToken(value, caret.current, tok)) })}
+      className="absolute end-1.5 top-1.5 w-8 h-8 rounded-lg text-brand-700 bg-brand-50 hover:bg-brand-100 flex items-center justify-center"><Icon name="BookOpenText" size={17} /></button>
+  );
+}
+
 // Textarea that grows with its content, so long lines are never hidden.
-export function AutoText({ value, onChange, placeholder, className = '', minRows = 1, answer = false }) {
+export function AutoText({ value, onChange, placeholder, className = '', minRows = 1, answer = false, noQuran = false }) {
   const UI = useUI();
   const ref = useRef(null);
+  const caret = useRef(null);
+  const remember = (e) => { caret.current = e.target.selectionStart; };
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = el.scrollHeight + 2 + 'px';
   }, [value]);
-  return <textarea ref={ref} rows={minRows} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} resize-none overflow-hidden ${className}`} />;
+  return (
+    <div className="relative flex-1 min-w-0">
+      <textarea ref={ref} rows={minRows} value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} resize-none overflow-hidden ${noQuran ? '' : 'pe-11'} ${className}`} />
+      {!noQuran && <QuranButton value={value} onChange={onChange} caret={caret} />}
+      {!noQuran && typeof value === 'string' && value.includes('{{q') && <TokenChips value={value} onChange={onChange} />}
+    </div>
+  );
 }
 
 function TextInput({ value, onChange, placeholder, className = '', answer = false }) {
   const UI = useUI();
-  return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} ${className}`} />;
+  const caret = useRef(null);
+  const remember = (e) => { caret.current = e.target.selectionStart; };
+  return (
+    <div className="relative flex-1 min-w-0">
+      <input type="text" value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} pe-11 ${className}`} />
+      <QuranButton value={value} onChange={onChange} caret={caret} />
+      {typeof value === 'string' && value.includes('{{q') && <TokenChips value={value} onChange={onChange} />}
+    </div>
+  );
 }
 
 export const Stepper = ({ value, onChange, step = 1, min = 0, decimals = false, className = '' }) => {
@@ -104,11 +160,13 @@ function OptionsEditor({ options, onChange, optional, answer, onAnswer }) {
               </button>
             )}
             <input type="text" value={o} onChange={(e) => onChange(opts.map((x, j) => (j === k ? e.target.value : x)))} placeholder={`Option ${k + 1}`} className={`w-32 bg-transparent p-2 ${UI.font} text-xl outline-none`} dir={UI.dir} />
+            <button type="button" aria-label="Insert ayat from the Quran" title="Insert ayat from the Quran" onClick={() => UI.openQuran({ onDone: (tok) => onChange(opts.map((x, j) => (j === k ? insertToken(x || '', (x || '').length, tok) : x))) })} className="w-7 h-7 rounded-lg text-brand-700 hover:bg-brand-100 flex items-center justify-center"><Icon name="BookOpenText" size={15} /></button>
             <button type="button" aria-label="Remove option" onClick={() => onChange(opts.filter((_, j) => j !== k))} className="px-1.5 text-slate-400 hover:text-red-600"><Icon name="X" size={16} /></button>
           </div>
         ))}
         <button type="button" onClick={() => onChange([...opts, ''])} className="text-sm text-brand-700 font-bold px-3 py-1.5 rounded-xl border border-dashed border-brand-300 hover:bg-brand-50">+ Option</button>
       </div>
+      {opts.map((o, k) => typeof o === 'string' && o.includes('{{q') && <div key={`ay${k}`}><div className="text-xs font-bold text-slate-500 mt-2">Option {k + 1}</div><TokenChips value={o} onChange={(v) => onChange(opts.map((x, j) => (j === k ? v : x)))} /></div>)}
       {onAnswer && opts.length > 0 && <p className="text-xs text-amber-700 mt-1">Tap the ✓ next to the correct option for the answer key.</p>}
       {optional && opts.length === 0 && <p className="text-xs text-slate-400 mt-1">No options → answer lines are printed instead.</p>}
     </div>
@@ -152,6 +210,8 @@ export default function QuestionEditor({ q, onChange, layout }) {
       )}
 
       <div className="border-t border-slate-200 pt-3">
+        {q.type === 'quran' && <QuranEditor q={q} set={set} layout={layout} />}
+
         {q.type === 'subjective' && (
           <>
             <div className="space-y-2" dir={UI.dir}>
@@ -298,8 +358,46 @@ export default function QuestionEditor({ q, onChange, layout }) {
   );
 }
 
+// Quran Ayat: a list of ayat (or ayat with a question), each can hide words and carry answer lines.
+function QuranEditor({ q, set, layout }) {
+  const UI = useUI();
+  const items = q.items || [];
+  const update = (id, patch) => set('items', items.map(it => (it.id === id ? { ...it, ...patch } : it)));
+  const addAyat = () => UI.openQuran({ onDone: (tok) => set('items', [...items.filter((it, i) => i < items.length - 1 || (it.text || '').trim()), { id: uid(), text: tok, lines: 0, answer: '' }]) });
+  return (
+    <>
+      <Hint>Tap <b>Add ayat</b>, choose the surah and ayat — they are written perfectly in the Quran font. To make a fill-in-the-blanks, choose <b>Hide words to fill in</b> and tap the words.</Hint>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-3 text-sm font-bold text-slate-600">
+        <span className="inline-flex items-center gap-2">Show <Segmented value={q.align === 'start' ? 'start' : 'center'} onChange={(v) => set('align', v)} options={[{ value: 'center', label: 'Centred' }, { value: 'start', label: 'Normal' }]} /></span>
+        <Toggle checked={q.showLabels} onChange={(v) => set('showLabels', v)}>Number each ayat</Toggle>
+      </div>
+      <div className="space-y-2" dir={UI.dir}>
+        {items.map((it, i) => (
+          <div key={it.id} className="bg-white p-2 rounded-xl border border-slate-200">
+            <div className="flex gap-1 items-start">
+              <Label i={i} style={layout.subNumbering} />
+              <AutoText value={it.text || ''} onChange={(v) => update(it.id, { text: v })} placeholder={UI.lang === 'en' ? 'Add ayat with the book button, and type any words you like…' : 'اضغط على زر المصحف لإضافة آية…'} />
+              {items.length > 1 && <RemoveBtn onClick={() => set('items', items.filter(x => x.id !== it.id))} />}
+            </div>
+            <div className="flex items-center gap-3 mt-2 ps-11" dir="ltr">
+              <span className="text-sm font-bold text-slate-500">Answer lines</span>
+              <Stepper value={it.lines} onChange={(v) => update(it.id, { lines: v })} />
+            </div>
+            {UI.answers && <div className="mt-2 ps-11"><AutoText answer value={it.answer || ''} onChange={(v) => update(it.id, { answer: v })} placeholder="Answer or marking points (for the answer key)" minRows={2} /></div>}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={addAyat} className="mt-3 text-sm bg-brand-700 text-white px-4 py-2.5 rounded-xl font-bold inline-flex items-center gap-1.5"><Icon name="BookOpenText" size={16} />Add ayat</button>
+        <AddBtn onClick={() => set('items', [...items, { id: uid(), text: '', lines: 0, answer: '' }])}>Empty line</AddBtn>
+      </div>
+    </>
+  );
+}
+
 function TableEditor({ q, set }) {
   const UI = useUI();
+  const [cur, setCur] = useState(null);
   const rows = q.rows || [['']];
   const cols = Math.max(1, ...rows.map(r => r.length));
   const setRows = (r) => set('rows', r);
@@ -307,14 +405,17 @@ function TableEditor({ q, set }) {
   const small = 'mt-3 text-sm px-3 py-2 rounded-xl border font-bold';
   return (
     <>
-      <Hint>Type in any cell. Leave cells empty for students to write in.</Hint>
+      <Hint>Type in any cell. Leave cells empty for students to write in. Tap a cell, then <b>Ayat in cell</b>, to put Quran text in it.</Hint>
       <div className="flex flex-wrap gap-2 mb-3">
+        <button type="button" disabled={!cur} onClick={() => UI.openQuran({ onDone: (tok) => { const old = (rows[cur.r] || [])[cur.c] || ''; cell(cur.r, cur.c, old ? `${old} ${tok}` : tok); } })} className="mt-3 text-sm bg-white text-brand-700 px-4 py-2.5 rounded-xl font-bold border border-brand-200 hover:bg-brand-50 disabled:opacity-40 inline-flex items-center gap-1.5"><Icon name="BookOpenText" size={16} />Ayat in cell</button>
         <AddBtn onClick={() => setRows([...rows, Array(cols).fill('')])}>Row</AddBtn>
         <AddBtn onClick={() => setRows(rows.map(r => [...r, '']))}>Column</AddBtn>
         {rows.length > 1 && <button type="button" onClick={() => setRows(rows.slice(0, -1))} className={`${small} text-red-600 border-red-200`}>− Row</button>}
         {cols > 1 && <button type="button" onClick={() => setRows(rows.map(r => r.slice(0, cols - 1)))} className={`${small} text-red-600 border-red-200`}>− Column</button>}
       </div>
       <div className="mb-3"><Toggle checked={q.headerRow} onChange={(v) => set('headerRow', v)}>First row is a heading (shaded, bold)</Toggle></div>
+      {rows.flatMap((row, r) => Array.from({ length: cols }, (_, c) => (typeof row[c] === 'string' && row[c].includes('{{q')
+        ? <div key={`ay${r}-${c}`} className="mb-2"><div className="text-xs font-bold text-slate-500">Row {r + 1}, column {c + 1}</div><TokenChips value={row[c]} onChange={(v) => cell(r, c, v)} /></div> : null)))}
       <div className="overflow-x-auto">
         <table className="border-collapse" dir={UI.dir}>
           <tbody>
@@ -322,7 +423,7 @@ function TableEditor({ q, set }) {
               <tr key={r}>
                 {Array.from({ length: cols }, (_, c) => (
                   <td key={c} className="border border-slate-300 p-0">
-                    <input type="text" value={row[c] || ''} onChange={(e) => cell(r, c, e.target.value)} dir={UI.dir} className={`w-32 px-2 py-2 ${UI.font} text-lg outline-none focus:bg-brand-50 ${q.headerRow && r === 0 ? 'bg-slate-100 font-bold' : 'bg-white'}`} />
+                    <input type="text" value={row[c] || ''} onChange={(e) => cell(r, c, e.target.value)} onFocus={() => setCur({ r, c })} dir={UI.dir} className={`w-32 px-2 py-2 ${UI.font} text-lg outline-none focus:bg-brand-50 ${q.headerRow && r === 0 ? 'bg-slate-100 font-bold' : 'bg-white'}`} />
                   </td>
                 ))}
               </tr>
