@@ -46,7 +46,10 @@ try {
 
   // 3. Put the build on gh-pages.
   const pages = join(work, 'pages');
-  run('git', ['worktree', 'add', '--detach', pages, 'origin/gh-pages'], root);
+  // Build on top of local releases that are not pushed yet, otherwise on what is online.
+  let from = 'origin/gh-pages';
+  try { run('git', ['merge-base', '--is-ancestor', 'origin/gh-pages', 'gh-pages'], root); from = 'gh-pages'; } catch { /* no local gh-pages, or it has diverged */ }
+  run('git', ['worktree', 'add', '--detach', pages, from], root);
   const dest = target === 'live' ? pages : join(pages, target);
   if (target === 'live') {
     for (const f of readdirSync(pages)) if (!['.git', 'beta', 'classic'].includes(f)) rmSync(join(pages, f), { recursive: true, force: true });
