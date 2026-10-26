@@ -41,7 +41,13 @@ function App() {
     document.title = "LSD - Exam Paper Generator";
     if (DEMO) {
       setUser(DEMO_USER);
-      setSubjects(sampleSubjects());
+      const demoSubjects = sampleSubjects();
+      if (new URLSearchParams(window.location.search).has('stress')) {
+        const first = demoSubjects[0];
+        demoSubjects[0] = { ...first, questions: [0, 1, 2, 3].flatMap((k) => first.questions.map((q) => ({ ...q, id: `${q.id}-${k}`, parts: q.parts.map((p) => ({ ...p, id: `${p.id}-${k}` })) }))) };
+        demoSubjects.push({ ...first, id: 's2', title: 'مادة ثانية' });
+      }
+      setSubjects(demoSubjects);
       setAppState(new URLSearchParams(window.location.search).get('demo') || 'editor');
       return;
     }

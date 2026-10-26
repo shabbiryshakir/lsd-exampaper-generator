@@ -2,44 +2,47 @@ import { questionMarks, resolveBlanks, wordBankFor, wordCount } from './paperMod
 
 // Height estimates (px at the A4 preview scale). The engine packs "atoms" greedily
 // onto pages; atoms flagged keepNext are never separated from the atom after them.
-export const PAGE_CAPACITY = 900;       // usable content height of a continuation page
-export const FIRST_PAGE_CAPACITY = 960; // first page has no running header
+export const PAGE_CAPACITY = 945;       // usable content height of a continuation page
+export const FIRST_PAGE_CAPACITY = 990; // first page has no running header
 const TEXT_W = 620;                     // usable text width in px
 const textLines = (text, perLine = 50) => (text && text.trim() ? Math.ceil(text.length / perLine) : 0);
 
+// harakat / Quranic marks take no horizontal space, so they are not counted
+const letters = (t) => t.replace(/[\u0640\u064B-\u065F\u0670\u06D6-\u06ED]/g, '').length;
+
 const ayatLineHeight = (blank, ayat) => {
   const toks = resolveBlanks(blank);
-  const w = toks.reduce((t, k) => t + (k.kind === 'word' ? k.text.length * 11 + 14 : k.size * 92 + 14), 0) + (ayat && blank.ayah ? 40 : 0);
+  const w = toks.reduce((t, k) => t + (k.kind === 'word' ? letters(k.text) * (ayat ? 15 : 12) + 16 : k.size * 92 + 14), 0) + (ayat && blank.ayah ? 40 : 0);
   const lines = Math.max(1, Math.ceil(w / TEXT_W));
-  return lines * (ayat ? 56 : 46) + 10;
+  return lines * (ayat ? 62 : 51) + 8;
 };
 
-export const coverHeightFor = (subjectCount) => 330 + 40 * (subjectCount + 2);
+export const coverHeightFor = (subjectCount) => 240 + 41 * (subjectCount + 2);
 
 export const generatePages = (subjects, { coverHeight = 0 } = {}) => {
   const atoms = [];
   subjects.forEach((sub) => {
-    atoms.push({ type: 'subjectHeader', sub, h: 55, keepNext: true });
+    atoms.push({ type: 'subjectHeader', sub, h: 52, keepNext: true });
     (sub.questions || []).forEach((q, qIndex) => {
       const parts = q.parts || [];
       const labelled = parts.length > 1;
-      atoms.push({ type: 'questionHeader', q, qIndex, h: 30 + textLines(q.text) * 36, keepNext: parts.length > 0 });
+      atoms.push({ type: 'questionHeader', q, qIndex, h: 20 + Math.max(1, textLines(q.text)) * 36, keepNext: parts.length > 0 });
       parts.forEach((p, pIndex) => {
         const ctx = { q, qIndex, p, pIndex, labelled };
         const showHead = labelled || (p.type === 'subjective' && p.text && p.text.trim()) || (p.type !== 'subjective' && p.text && p.text.trim());
         if (p.type === 'subjective') {
           const lines = parseInt(p.lines) || 0;
-          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 22 + Math.max(1, textLines(p.text)) * 36, keepNext: lines > 0 });
+          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: lines > 0 });
           for (let i = 0; i < lines; i++) atoms.push({ type: 'line', ...ctx, h: 35 });
         } else if (p.type === 'fillBlanks') {
           const bank = p.showWordBank ? wordBankFor(p) : [];
           const next = (p.blanks || []).length > 0;
-          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 22 + Math.max(1, textLines(p.text)) * 36, keepNext: bank.length > 0 || next });
+          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: bank.length > 0 || next });
           if (bank.length) atoms.push({ type: 'wordBank', ...ctx, h: 36 + Math.ceil(bank.reduce((t, w) => t + w.length * 11 + 40, 0) / TEXT_W) * 38, keepNext: next });
           (p.blanks || []).forEach((b, bIndex) => atoms.push({ type: 'blankItem', ...ctx, blank: b, bIndex, h: ayatLineHeight(b, p.ayat) }));
         } else if (p.type === 'match') {
           const pairs = p.pairs || [];
-          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 22 + Math.max(1, textLines(p.text)) * 36, keepNext: pairs.length > 0 });
+          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: pairs.length > 0 });
           pairs.forEach((pair, pairIndex) => atoms.push({ type: 'pair', ...ctx, pairIndex, h: 40 + (Math.max(wordCount(pair.right), wordCount(pair.left)) > 4 ? 28 : 0) }));
         }
       });
