@@ -1,6 +1,8 @@
-import { DARAJAH_OPTIONS, TIME_OPTIONS, abjad, toArabicNumerals, uid, newQuestion, newPart, partsMarks, questionMarks, subjectMarks, splitAnswers } from '../lib/paperModel'
+import { useState } from 'react'
+import { DARAJAH_OPTIONS, TIME_OPTIONS, partLabel, toArabicNumerals, uid, newQuestion, newPart, newMcqItem, duplicateQuestion, duplicatePart, partsMarks, questionMarks, subjectMarks, paperMarks, splitAnswers, validatePaper, TRUE_LABEL, FALSE_LABEL } from '../lib/paperModel'
 
-const TYPE_LABEL = { subjective: 'Written answer', fillBlanks: 'Fill in the blanks', match: 'Match' }
+const TYPE_LABEL = { subjective: 'Written answer', fillBlanks: 'Fill in the blanks', ayat: 'Quran ayat blanks', match: 'Match', mcq: 'Multiple choice', trueFalse: 'True / False' }
+const ADD_TYPES = ['subjective', 'fillBlanks', 'ayat', 'match', 'mcq', 'trueFalse']
 
 const Stepper = ({ value, onChange, width = 'w-24' }) => (
   <div className={`flex border border-gray-300 rounded-md overflow-hidden bg-white ${width}`}>
@@ -11,6 +13,11 @@ const Stepper = ({ value, onChange, width = 'w-24' }) => (
 )
 
 export default function Editor({ paperData, setHeaderData, subjects, setSubjects }) {
+  const [collapsed, setCollapsed] = useState({})
+  const [showChecks, setShowChecks] = useState(true)
+  const issues = validatePaper(subjects, paperData)
+  const abjad = (i) => partLabel(i, paperData.labelStyle)
+  const toggle = (id) => setCollapsed((c) => ({ ...c, [id]: !c[id] }))
   const handleInputChange = (e) => setHeaderData({ ...paperData, [e.target.name]: e.target.value })
 
   // --- immutable update helpers -------------------------------------------------
@@ -39,7 +46,7 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
       <div key={part.id} className="bg-white p-3 mb-3 rounded-md border border-gray-200 shadow-sm">
         <div className="flex flex-wrap items-center gap-2 mb-2">
           {labelled && <span className="font-bold text-lg font-arabic text-indigo-600 border border-indigo-200 rounded px-2 bg-indigo-50">{abjad(pIndex)})</span>}
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{TYPE_LABEL[part.type]}</span>
+          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{TYPE_LABEL[part.type === 'fillBlanks' && part.ayat ? 'ayat' : part.type]}</span>
           <div className="flex-grow" />
           {labelled && (
             <div className="flex items-center gap-1">
@@ -50,6 +57,7 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
           {labelled && <>
             <button type="button" title="Move up" onClick={() => mapQuestion(sid, q.id, (qq) => ({ ...qq, parts: moveItem(qq.parts, pIndex, -1) }))} className="text-gray-400 hover:text-gray-700 px-1">↑</button>
             <button type="button" title="Move down" onClick={() => mapQuestion(sid, q.id, (qq) => ({ ...qq, parts: moveItem(qq.parts, pIndex, 1) }))} className="text-gray-400 hover:text-gray-700 px-1">↓</button>
+            <button type="button" title="Duplicate this part" onClick={() => mapQuestion(sid, q.id, (qq) => ({ ...qq, parts: [...qq.parts.slice(0, pIndex + 1), duplicatePart(part), ...qq.parts.slice(pIndex + 1)] }))} className="text-gray-400 hover:text-blue-600 px-1">⧉</button>
             <button type="button" onClick={() => mapQuestion(sid, q.id, (qq) => ({ ...qq, parts: qq.parts.filter((p) => p.id !== part.id) }))} className="text-red-500 text-xs font-medium hover:underline">Drop</button>
           </>}
         </div>
@@ -109,6 +117,48 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
           </div>
         )}
 
+        {(part.type === 'mcq' || part.type === 'trueFalse') && (
+          <div>
+            {labelled && (
+              <input type="text" value={part.text || ''} onChange={(e) => patchPart(sid, q.id, part.id, { text: e.target.value })} placeholder="Instruction for this part (optional)" className="w-full border border-gray-300 p-1.5 rounded-md font-arabic text-lg mb-3" dir="rtl" />
+            )}
+            <div className="space-y-2">
+              {part.items.map((it, i) => {
+                const setItem = (patch) => mapPart(sid, q.id, part.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === it.id ? { ...x, ...patch } : x)) }))
+                return (
+                  <div key={it.id} className="bg-gray-50 p-2 border border-gray-200 rounded-md">
+                    <div className="flex gap-2 items-center">
+                      <span className="font-bold font-arabic text-gray-400 text-xl w-6">{toArabicNumerals(i + 1)}.</span>
+                      <input type="text" value={it.text || ''} onChange={(e) => setItem({ text: e.target.value })} placeholder={part.type === 'mcq' ? 'Question' : 'Statement'} className="flex-grow border border-gray-300 p-1.5 rounded-md font-arabic text-lg" dir="rtl" />
+                      <button type="button" onClick={() => mapPart(sid, q.id, part.id, (p) => ({ ...p, items: p.items.filter((x) => x.id !== it.id) }))} className="text-red-400 font-bold text-lg hover:text-red-600 px-1">×</button>
+                    </div>
+                    {part.type === 'trueFalse' ? (
+                      <div className="flex gap-4 mt-2 text-xs font-bold text-gray-700">
+                        <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={it.answer !== false} onChange={() => setItem({ answer: true })} /> {TRUE_LABEL} (true)</label>
+                        <label className="flex items-center gap-1 cursor-pointer"><input type="radio" checked={it.answer === false} onChange={() => setItem({ answer: false })} /> {FALSE_LABEL} (false)</label>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        {(it.options || []).map((o, k) => (
+                          <div key={k} className="flex items-center gap-1">
+                            <input type="radio" title="Correct answer" checked={it.answer === k} onChange={() => setItem({ answer: k })} />
+                            <span className="font-arabic text-gray-500 w-6">{abjad(k)})</span>
+                            <input type="text" value={o} onChange={(e) => setItem({ options: it.options.map((x, m) => (m === k ? e.target.value : x)) })} className="flex-grow min-w-0 border border-gray-300 p-1 rounded-md font-arabic text-lg" dir="rtl" />
+                            {it.options.length > 2 && <button type="button" onClick={() => setItem({ options: it.options.filter((_, m) => m !== k), answer: it.answer === k ? 0 : (it.answer > k ? it.answer - 1 : it.answer) })} className="text-red-300 hover:text-red-600 px-1">×</button>}
+                          </div>
+                        ))}
+                        {it.options.length < 8 && <button type="button" onClick={() => setItem({ options: [...it.options, ''] })} className="text-xs text-blue-600 text-left hover:underline">+ option</button>}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <button type="button" onClick={() => mapPart(sid, q.id, part.id, (p) => ({ ...p, items: [...p.items, part.type === 'mcq' ? newMcqItem() : { id: uid(), text: '', answer: true }] }))} className="mt-3 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-md font-bold border border-blue-200 hover:bg-blue-100">+ {part.type === 'mcq' ? 'MCQ' : 'Statement'}</button>
+            {part.type === 'mcq' && <p className="text-[11px] text-gray-400 mt-1">The round button marks the correct option (shown in red on the Answer key).</p>}
+          </div>
+        )}
+
         {part.type === 'match' && (
           <div>
             {labelled && (
@@ -143,6 +193,18 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
         </div>
       </div>
 
+      <div className={`rounded-xl border p-3 text-sm ${issues.some((i) => i.level === 'error') ? 'bg-red-50 border-red-200' : issues.length ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+        <button type="button" onClick={() => setShowChecks(!showChecks)} className="w-full flex justify-between items-center font-bold text-gray-700">
+          <span>{issues.length === 0 ? '✅ Paper checks: all good' : `⚠️ Paper checks: ${issues.length} thing${issues.length > 1 ? 's' : ''} to look at`} · Total marks {paperMarks(subjects)}</span>
+          <span className="text-xs text-gray-400">{showChecks ? 'hide' : 'show'}</span>
+        </button>
+        {showChecks && issues.length > 0 && (
+          <ul className="mt-2 space-y-1 text-xs text-gray-700 max-h-40 overflow-y-auto">
+            {issues.map((i, k) => <li key={k}><span className={i.level === 'error' ? 'text-red-600 font-bold' : 'text-amber-600 font-bold'}>{i.level === 'error' ? 'Error' : 'Check'}</span> · {i.where}: {i.msg}</li>)}
+          </ul>
+        )}
+      </div>
+
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Paper Details</h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -171,7 +233,14 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
             </select>
           </div>
         </div>
-        <label className="flex items-center gap-2 mt-4 text-xs font-bold text-gray-700 cursor-pointer">
+        <div className="flex items-center gap-2 mt-4 text-xs font-bold text-gray-700">
+          <span>Sub-question labels:</span>
+          <select value={paperData.labelStyle || 'abjad'} onChange={(e) => setHeaderData({ ...paperData, labelStyle: e.target.value })} className="border border-gray-300 rounded px-2 py-1 font-arabic text-base">
+            <option value="abjad">الف، ب، ج</option>
+            <option value="numbers">١، ٢، ٣</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 mt-3 text-xs font-bold text-gray-700 cursor-pointer">
           <input type="checkbox" checked={paperData.coverMode !== 'separate'} onChange={(e) => setHeaderData({ ...paperData, coverMode: e.target.checked ? 'compact' : 'separate' })} />
           Start questions on the first page, right under the marks table (no wasted space)
         </label>
@@ -195,13 +264,18 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
             return (
               <div key={q.id} className="bg-gray-50 p-4 mb-4 rounded-lg border border-gray-200 relative">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-gray-700 font-arabic text-lg">س{toArabicNumerals(qIndex + 1)}</h3>
+                  <button type="button" onClick={() => toggle(q.id)} className="font-bold text-gray-700 font-arabic text-lg flex items-center gap-2" title="Collapse / expand">
+                    <span className="text-gray-400 text-xs">{collapsed[q.id] ? '▶' : '▼'}</span>س{toArabicNumerals(qIndex + 1)}
+                    {collapsed[q.id] && <span className="text-sm font-normal text-gray-500 truncate max-w-[40ch]">{q.text}</span>}
+                  </button>
                   <div className="flex items-center gap-2">
+                    <button type="button" title="Duplicate question" onClick={() => mapSubject(subject.id, (s) => ({ ...s, questions: [...s.questions.slice(0, qIndex + 1), duplicateQuestion(q), ...s.questions.slice(qIndex + 1)] }))} className="text-gray-400 hover:text-blue-600 px-1">⧉</button>
                     <button type="button" title="Move up" onClick={() => mapSubject(subject.id, (s) => ({ ...s, questions: moveItem(s.questions, qIndex, -1) }))} className="text-gray-400 hover:text-gray-700 px-1">↑</button>
                     <button type="button" title="Move down" onClick={() => mapSubject(subject.id, (s) => ({ ...s, questions: moveItem(s.questions, qIndex, 1) }))} className="text-gray-400 hover:text-gray-700 px-1">↓</button>
-                    <button type="button" onClick={() => mapSubject(subject.id, (s) => ({ ...s, questions: s.questions.filter((x) => x.id !== q.id) }))} className="text-gray-400 hover:text-red-500 text-xs font-bold">✕ Remove</button>
+                    <button type="button" onClick={() => { if (window.confirm('Remove this question?')) mapSubject(subject.id, (s) => ({ ...s, questions: s.questions.filter((x) => x.id !== q.id) })) }} className="text-gray-400 hover:text-red-500 text-xs font-bold">✕ Remove</button>
                   </div>
                 </div>
+                {!collapsed[q.id] && <>
                 <div className="flex flex-col md:flex-row gap-3 mb-3">
                   <div className="w-full md:w-3/4">
                     <label className="block mb-1 text-xs font-bold text-gray-600">Main Instruction</label>
@@ -220,16 +294,17 @@ export default function Editor({ paperData, setHeaderData, subjects, setSubjects
                   {q.parts.map((part, pIndex) => renderPart(subject, q, part, pIndex))}
                   <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-[11px] font-bold text-gray-500 uppercase">+ Sub-question:</span>
-                    {['subjective', 'fillBlanks', 'match'].map((t) => (
+                    {ADD_TYPES.map((t) => (
                       <button key={t} type="button" onClick={() => mapQuestion(subject.id, q.id, (x) => ({ ...x, parts: [...x.parts, newPart(t)] }))} className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-md font-bold border border-green-200 hover:bg-green-100">{TYPE_LABEL[t]}</button>
                     ))}
                   </div>
                 </div>
+                </>}
               </div>
             )
           })}
           <div className="mt-2 flex flex-wrap gap-2">
-            {[['subjective', '+ Subjective'], ['fillBlanks', '+ Blanks'], ['match', '+ Match']].map(([t, label]) => (
+            {[['subjective', '+ Subjective'], ['fillBlanks', '+ Blanks'], ['ayat', '+ Quran ayat'], ['match', '+ Match'], ['mcq', '+ MCQ'], ['trueFalse', '+ True/False']].map(([t, label]) => (
               <button key={t} type="button" onClick={() => mapSubject(subject.id, (s) => ({ ...s, questions: [...s.questions, newQuestion(t)] }))} className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-bold text-xs shadow-sm">{label}</button>
             ))}
           </div>

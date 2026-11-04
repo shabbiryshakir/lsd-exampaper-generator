@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { toArabicNumerals } from '../lib/paperModel'
+import { toArabicNumerals, DARAJAH_OPTIONS } from '../lib/paperModel'
 
 const norm = (s) => String(s || '').toLowerCase()
 
-export default function Dashboard({ user, papers, folders, onOpen, onNew, onDelete, onDuplicate, onMove, onAddFolder, onRenameFolder, onDeleteFolder, onSettings, onLogout }) {
+export default function Dashboard({ user, papers, folders, loading, loadError, onRetry, draft, onRestoreDraft, onDiscardDraft, onOpen, onNew, onDelete, onDuplicate, onMove, onAddFolder, onRenameFolder, onDeleteFolder, onSettings, onLogout }) {
   const [search, setSearch] = useState('')
   const [folder, setFolder] = useState('all') // 'all' | 'none' | folderId
+  const [sort, setSort] = useState('recent') // recent | name | class
 
   const counts = useMemo(() => {
     const c = { all: papers.length, none: 0 }
@@ -24,8 +25,12 @@ export default function Dashboard({ user, papers, folders, onOpen, onNew, onDele
         const hay = [p.header?.className, p.header?.examName, p.header?.paperNumber, p.header?.hijriYear, ...(p.subjects || []).map((s) => s.title)].map(norm).join(' ')
         return q.split(/\s+/).every((w) => hay.includes(w))
       })
-      .sort((a, b) => String(b.lastEdited || '').localeCompare(String(a.lastEdited || '')))
-  }, [papers, folders, search, folder])
+      .sort((a, b) => {
+        if (sort === 'name') return String(a.header?.examName || '').localeCompare(String(b.header?.examName || ''), 'ar');
+        if (sort === 'class') return DARAJAH_OPTIONS.indexOf(a.header?.className) - DARAJAH_OPTIONS.indexOf(b.header?.className);
+        return String(b.lastEdited || '').localeCompare(String(a.lastEdited || ''));
+      })
+  }, [papers, folders, search, folder, sort])
 
   const activeFolder = folders.find((f) => f.id === folder)
   const chip = (id, label, count) => (
@@ -58,9 +63,26 @@ export default function Dashboard({ user, papers, folders, onOpen, onNew, onDele
           <button onClick={onNew} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow-sm text-sm transition self-start sm:self-auto">+ New Paper</button>
         </div>
 
-        <div className="relative mb-4">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+        {draft && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-3 text-sm" data-testid="draft-banner">
+            <span className="text-amber-800 flex-1">📝 You have an unsaved draft from {new Date(draft.savedAt).toLocaleString()}.</span>
+            <button onClick={onRestoreDraft} className="bg-amber-500 text-white px-3 py-1.5 rounded-md font-bold text-xs">Restore</button>
+            <button onClick={onDiscardDraft} className="text-amber-700 px-2 py-1.5 text-xs hover:underline">Discard</button>
+          </div>
+        )}
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-center gap-3 text-sm text-red-700">
+            <span className="flex-1">{loadError}</span>
+            <button onClick={onRetry} className="bg-red-600 text-white px-3 py-1.5 rounded-md font-bold text-xs">Retry</button>
+          </div>
+        )}
+
+        <div className="relative mb-4 flex gap-2">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">🔍</span>
           <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by class, exam, subject, paper no…" className="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-blue-400" />
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-2 text-sm text-gray-600" aria-label="Sort papers">
+            <option value="recent">Recent</option><option value="name">Name</option><option value="class">Class</option>
+          </select>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4 items-center">
@@ -81,7 +103,7 @@ export default function Dashboard({ user, papers, folders, onOpen, onNew, onDele
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {visible.length === 0 ? (
             <p className="text-gray-500 col-span-full text-center py-10 bg-white rounded-lg shadow-sm border border-dashed border-gray-300">
-              {papers.length === 0 ? 'No papers saved yet. Create your first one!' : 'No papers match your search / folder.'}
+              {loading ? 'Loading your papers…' : papers.length === 0 ? 'No papers saved yet. Create your first one!' : 'No papers match your search / folder.'}
             </p>
           ) : visible.map((paper) => (
             <div key={paper.id} onClick={() => onOpen(paper)} className="bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:border-blue-400 hover:shadow-md transition cursor-pointer relative group">

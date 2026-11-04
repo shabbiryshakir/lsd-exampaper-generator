@@ -1,5 +1,6 @@
-import { toArabicNumerals, abjad, questionMarks, subjectMarks, paperMarks, resolveBlanks, wordBankFor } from '../lib/paperModel'
-import { generatePages, groupPageItems, coverHeightFor } from '../lib/paginate'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { toArabicNumerals, partLabel, questionMarks, subjectMarks, paperMarks, resolveBlanks, wordBankFor, TRUE_LABEL, FALSE_LABEL } from '../lib/paperModel'
+import { generatePages, groupPageItems, coverHeightFor, DENSE_FROM } from '../lib/paginate'
 
 const Marks = ({ value, className = '' }) => (
   <span className={`marks-badge font-arabic ${className}`}>({toArabicNumerals(value)})</span>
@@ -58,7 +59,7 @@ const CoverHeader = ({ paperData, school, subjects, showAnswers }) => {
 }
 
 const SummaryTable = ({ subjects }) => (
-  <table className="summary-table font-arabic text-lg" dir="rtl">
+  <table className={`summary-table font-arabic text-lg ${subjects.length >= DENSE_FROM ? 'dense' : ''}`} dir="rtl">
     <thead><tr><th className="w-14">رقم</th><th>المواضيع</th><th className="w-24">ماركس</th><th className="w-32">المحصول</th></tr></thead>
     <tbody>
       {subjects.map((s, i) => (
@@ -69,8 +70,9 @@ const SummaryTable = ({ subjects }) => (
   </table>
 )
 
-const Item = ({ item, showAnswers }) => {
+const Item = ({ item, showAnswers, labelStyle }) => {
   const { type } = item
+  const abjad = (i) => partLabel(i, labelStyle)
   if (type === 'subjectHeader') {
     return (
       <div className="subject-bar font-arabic">
@@ -122,6 +124,28 @@ const Item = ({ item, showAnswers }) => {
   if (type === 'blankItem') {
     return <div className="px-3"><BlankLine blank={item.blank} ayat={item.p.ayat} index={item.bIndex} showAnswers={showAnswers} /></div>
   }
+  if (type === 'mcqItem') {
+    const { item: it, itemIndex } = item
+    return (
+      <div className="px-3 mb-2 font-arabic">
+        <p className="text-xl leading-relaxed"><span className="font-bold ml-2">{toArabicNumerals(itemIndex + 1)}.</span>{it.text}</p>
+        <div className="mcq-options" dir="rtl">
+          {(it.options || []).filter((o) => String(o).trim()).map((o, i) => (
+            <span key={i} className={`mcq-option ${showAnswers && it.answer === i ? 'mcq-correct' : ''}`}><b>{abjad(i)})</b> {o}</span>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  if (type === 'tfItem') {
+    const { item: it, itemIndex } = item
+    return (
+      <div className="px-3 mb-2 font-arabic flex justify-between items-start gap-3">
+        <p className="text-xl leading-relaxed flex-1"><span className="font-bold ml-2">{toArabicNumerals(itemIndex + 1)}.</span>{it.text}</p>
+        <span className="tf-box">[ {showAnswers ? <b className="text-red-700 font-arabic">{it.answer ? TRUE_LABEL : FALSE_LABEL}</b> : <>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</>} ]</span>
+      </div>
+    )
+  }
   if (type === 'pairs') {
     const all = item.p.pairs || []
     const n = all.length
@@ -135,7 +159,7 @@ const Item = ({ item, showAnswers }) => {
               return (
                 <tr key={r}>
                   <td className="border border-black p-1.5 text-right pr-3 w-5/12"><span className="ml-2 font-bold">{toArabicNumerals(r + 1)}.</span>{all[r].right}</td>
-                  <td className="border border-black p-1.5 text-center w-2/12 font-bold">[ {showAnswers ? correctLabel : <>&nbsp;&nbsp;&nbsp;</>} ]</td>
+                  <td className="border border-black p-1.5 text-center w-2/12 font-bold bracket">[ {showAnswers ? <span className="font-arabic text-red-700">{correctLabel}</span> : <>&nbsp;&nbsp;&nbsp;</>} ]</td>
                   <td className="border border-black p-1.5 text-right pr-3 w-5/12"><span className="ml-2 font-bold">{abjad(r)})</span>{all[j]?.left}</td>
                 </tr>
               )
@@ -148,14 +172,51 @@ const Item = ({ item, showAnswers }) => {
   return null
 }
 
-export default function PaperPages({ paperData, subjects, school, showAnswers = false }) {
+// Real-render check: after every layout, any page whose content runs past the bottom margin gets extra
+// "slack" and the packer is run again, so the estimates correct themselves (max a few passes).
+const MAX_PASSES = 40
+
+export default function PaperPages({ paperData, subjects, school, showAnswers = false, onOverflow }) {
   const compact = paperData.coverMode !== 'separate'
-  const pages = generatePages(subjects, { coverHeight: compact ? coverHeightFor(subjects.length) : 0 })
+  const [slack, setSlack] = useState([])
+  const passes = useRef(0)
+  const rootRef = useRef(null)
+  const sig = useMemo(() => JSON.stringify([paperData, subjects, showAnswers]), [paperData, subjects, showAnswers])
+
+  useEffect(() => { setSlack([]); passes.current = 0 }, [sig])
+
+  const pages = useMemo(
+    () => generatePages(subjects, { coverHeight: compact ? coverHeightFor(subjects.length) : 0, slack: compact ? slack : slack.slice(1) }),
+    [subjects, compact, slack]
+  )
   // "separate": cover page stands alone, questions start on page 2
   const sheets = compact ? pages : [[], ...pages]
 
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const next = [...slack]
+    let changed = false
+    let stuck = false
+    root.querySelectorAll('.a4-sheet').forEach((sheet, i) => {
+      const body = sheet.querySelector(':scope > .page-body')
+      if (!body || !body.lastElementChild) return
+      const limit = sheet.getBoundingClientRect().height - 76 // bottom padding (20mm) + frame
+      const bottom = body.lastElementChild.getBoundingClientRect().bottom - sheet.getBoundingClientRect().top
+      const over = bottom - limit
+      if (over > 1) {
+        const pageIdx = compact ? i : i - 1
+        if (pageIdx < 0 || (sheets[i] || []).length <= 1) { stuck = true; return } // one unsplittable item taller than a page
+        next[pageIdx] = (next[pageIdx] || 0) + Math.ceil(over) + 8
+        changed = true
+      }
+    })
+    if (changed && passes.current < MAX_PASSES) { passes.current += 1; setSlack(next) }
+    else if (onOverflow) onOverflow(changed || stuck)
+  })
+
   return (
-    <div className="print:m-0 print:w-full">
+    <div ref={rootRef} className="print:m-0 print:w-full">
       {sheets.map((items, pageIndex) => (
         <div key={pageIndex} className="a4-wrapper print:block">
           <div className="a4-sheet text-xl" dir="rtl">
@@ -172,8 +233,8 @@ export default function PaperPages({ paperData, subjects, school, showAnswers = 
                 <span className="w-24" />
               </div>
             )}
-            <div className="flex-grow pt-3">
-              {groupPageItems(items).map((item, idx) => <Item key={idx} item={item} showAnswers={showAnswers} />)}
+            <div className="page-body flex-grow pt-3">
+              {groupPageItems(items).map((item, idx) => <Item key={idx} item={item} showAnswers={showAnswers} labelStyle={paperData.labelStyle} />)}
             </div>
             <div className="page-no font-arabic">{toArabicNumerals(pageIndex + 1)}</div>
           </div>

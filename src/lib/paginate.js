@@ -1,4 +1,4 @@
-import { questionMarks, resolveBlanks, wordBankFor, wordCount } from './paperModel';
+import { questionMarks, resolveBlanks, wordBankFor, wordCount } from './paperModel.js';
 
 // Height estimates (px at the A4 preview scale). The engine packs "atoms" greedily
 // onto pages; atoms flagged keepNext are never separated from the atom after them.
@@ -17,9 +17,12 @@ const ayatLineHeight = (blank, ayat) => {
   return lines * (ayat ? 62 : 51) + 8;
 };
 
-export const coverHeightFor = (subjectCount) => 240 + 41 * (subjectCount + 2);
+export const DENSE_FROM = 9; // summary table gets compact rows from this many subjects
+export const coverHeightFor = (subjectCount) => 240 + (subjectCount >= DENSE_FROM ? 29 : 41) * (subjectCount + 2);
 
-export const generatePages = (subjects, { coverHeight = 0 } = {}) => {
+// slack[i] = extra px to keep free on page i. PaperPages raises it when a real render overflows,
+// so the estimates are self-correcting.
+export const generatePages = (subjects, { coverHeight = 0, slack = [] } = {}) => {
   const atoms = [];
   subjects.forEach((sub) => {
     atoms.push({ type: 'subjectHeader', sub, h: 52, keepNext: true });
@@ -40,6 +43,15 @@ export const generatePages = (subjects, { coverHeight = 0 } = {}) => {
           if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: bank.length > 0 || next });
           if (bank.length) atoms.push({ type: 'wordBank', ...ctx, h: 36 + Math.ceil(bank.reduce((t, w) => t + w.length * 11 + 40, 0) / TEXT_W) * 38, keepNext: next });
           (p.blanks || []).forEach((b, bIndex) => atoms.push({ type: 'blankItem', ...ctx, blank: b, bIndex, h: ayatLineHeight(b, p.ayat) }));
+        } else if (p.type === 'mcq') {
+          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: (p.items || []).length > 0 });
+          (p.items || []).forEach((item, itemIndex) => {
+            const optChars = (item.options || []).reduce((t, o) => t + letters(String(o)) * 13 + 70, 0);
+            atoms.push({ type: 'mcqItem', ...ctx, item, itemIndex, h: 14 + Math.max(1, textLines(item.text, 60)) * 40 + Math.max(1, Math.ceil(optChars / TEXT_W)) * 42 });
+          });
+        } else if (p.type === 'trueFalse') {
+          if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: (p.items || []).length > 0 });
+          (p.items || []).forEach((item, itemIndex) => atoms.push({ type: 'tfItem', ...ctx, item, itemIndex, h: 12 + Math.max(1, textLines(item.text, 60)) * 40 }));
         } else if (p.type === 'match') {
           const pairs = p.pairs || [];
           if (showHead) atoms.push({ type: 'partHeader', ...ctx, h: 10 + Math.max(1, textLines(p.text)) * 32, keepNext: pairs.length > 0 });
@@ -52,14 +64,16 @@ export const generatePages = (subjects, { coverHeight = 0 } = {}) => {
   const pages = [];
   let cur = [];
   let used = 0;
-  let cap = FIRST_PAGE_CAPACITY - coverHeight;
-  const flush = () => { pages.push(cur); cur = []; used = 0; cap = PAGE_CAPACITY; };
+  const capFor = (i) => (i === 0 ? FIRST_PAGE_CAPACITY - coverHeight : PAGE_CAPACITY) - (slack[i] || 0);
+  let cap = capFor(0);
+  const flush = () => { pages.push(cur); cur = []; used = 0; cap = capFor(pages.length); };
 
   for (let i = 0; i < atoms.length; i++) {
     // atoms that must stay together: this one plus the chain it is glued to
     let need = atoms[i].h;
     for (let j = i; atoms[j].keepNext && atoms[j + 1]; j++) need += atoms[j + 1].h;
-    if (cur.length > 0 && used + need > cap) flush();
+    // the first page may stay cover-only when not even the first block fits under the cover table
+    if ((cur.length > 0 || (pages.length === 0 && coverHeight > 0)) && used + need > cap) flush();
     cur.push(atoms[i]);
     used += atoms[i].h;
   }
