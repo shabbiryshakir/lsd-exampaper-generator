@@ -162,6 +162,9 @@ function App() {
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // all | shared
+  // Folders are personal: stored in the teacher's own user document, so shared papers can sit in different folders for different teachers.
+  const [folderData, setFolderData] = useState(() => store.json('folderData', { list: [], of: {} }));
+  const [folderFilter, setFolderFilter] = useState('all'); // all | none | <folder id>
   const [activeId, setActiveId] = useState(null);
   const [showAnswers, setShowAnswers] = useState(() => store.get('showAnswers') === '1');
   const [pageCount, setPageCount] = useState(null);
@@ -282,7 +285,7 @@ function App() {
     if (DEMO) {
       setUser({ uid: 'demo', displayName: 'Demo Teacher', email: 'demo@local' });
       setAppState('dashboard');
-      import('./lib/demoPaper').then(m => { setSavedPapers([m.default, m.englishPaper, ...(m.legacyPapers || [])]); setPapersLoading(false); });
+      import('./lib/demoPaper').then(m => { setSavedPapers([m.default, m.englishPaper, m.quranPaper, ...(m.legacyPapers || [])]); setPapersLoading(false); });
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -378,6 +381,7 @@ function App() {
       if (d.schoolSettings) { setSchoolSettings(d.schoolSettings); store.set('schoolSettings', JSON.stringify(d.schoolSettings)); }
       if (Array.isArray(d.templates)) { setTemplates(d.templates); store.set('templates', JSON.stringify(d.templates)); }
       if (d.appSettings) { const s = { ...DEFAULT_APP_SETTINGS, ...d.appSettings }; setAppSettings(s); store.set('appSettings', JSON.stringify(s)); }
+      if (d.folderData && Array.isArray(d.folderData.list)) { const f = { list: d.folderData.list, of: d.folderData.of || {} }; setFolderData(f); store.set('folderData', JSON.stringify(f)); }
     } catch (error) { console.error('Error loading user data:', error); }
   };
   const updateSchoolSettings = (s) => { setSchoolSettings(s); store.set('schoolSettings', JSON.stringify(s)); };
@@ -385,6 +389,33 @@ function App() {
     const s = { ...appSettings, ...patch };
     setAppSettings(s); store.set('appSettings', JSON.stringify(s));
     userDocWrite({ appSettings: s });
+  };
+  const updateFolders = (next) => {
+    setFolderData(next); store.set('folderData', JSON.stringify(next));
+    userDocWrite({ folderData: next });
+  };
+  const folderOf = (paperId) => { const id = folderData.of?.[paperId]; return folderData.list.some(f => f.id === id) ? id : null; };
+  const addFolder = () => {
+    const name = (window.prompt('Folder name (for example "Annual exam" or "Grade 4")') || '').trim();
+    if (!name) return;
+    const id = uid();
+    updateFolders({ ...folderData, list: [...folderData.list, { id, name: name.slice(0, 40) }] });
+    setFolderFilter(id);
+  };
+  const renameFolder = (id) => {
+    const cur = folderData.list.find(f => f.id === id);
+    const name = (window.prompt('Rename folder', cur?.name || '') || '').trim();
+    if (name) updateFolders({ ...folderData, list: folderData.list.map(f => (f.id === id ? { ...f, name: name.slice(0, 40) } : f)) });
+  };
+  const deleteFolder = (id) => {
+    if (!window.confirm('Delete this folder? The papers inside are kept and move back to "No folder".')) return;
+    updateFolders({ list: folderData.list.filter(f => f.id !== id), of: Object.fromEntries(Object.entries(folderData.of || {}).filter(([, v]) => v !== id)) });
+    setFolderFilter('all');
+  };
+  const movePaper = (paperId, folderId) => {
+    const of = { ...(folderData.of || {}) };
+    if (folderId) of[paperId] = folderId; else delete of[paperId];
+    updateFolders({ ...folderData, of });
   };
   const updateTemplates = (list) => {
     if (paperSizeKb({ templates: list, schoolSettings }) > 900) { alert('Your templates are full. Please delete some old templates (pictures take a lot of space).'); return false; }
@@ -781,6 +812,8 @@ function App() {
   const sharedCount = activePapers.filter(isSharedPaper).length;
   const filteredPapers = activePapers.filter(p => {
     if (filter === 'shared' && !isSharedPaper(p)) return false;
+    if (folderFilter === 'none' && folderOf(p.id)) return false;
+    if (folderFilter !== 'all' && folderFilter !== 'none' && folderOf(p.id) !== folderFilter) return false;
     const t = search.trim().toLowerCase();
     if (!t) return true;
     return [p.header?.className, p.header?.examName, p.header?.paperNumber, ...(p.subjects || []).map(s => s.title)].join(' ').toLowerCase().includes(t);
@@ -950,10 +983,28 @@ function App() {
               </div>
             )}
           </div>
-          {activePapers.length > 3 && (
-            <div className="relative mb-4">
+          {activePapers.length > 0 && (
+            <div className="relative mb-3">
               <Icon name="Search" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search class, exam or subject" className="w-full h-12 pl-10 pr-4 rounded-2xl border border-slate-200 bg-white focus:border-brand-500 focus:outline-none" dir="auto" />
+              <input type="search" aria-label="Search papers" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search class, exam or subject" className="w-full h-12 pl-10 pr-4 rounded-2xl border border-slate-200 bg-white focus:border-brand-500 focus:outline-none" dir="auto" />
+            </div>
+          )}
+          {activePapers.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 mb-3" data-testid="folder-bar">
+              {[['all', 'All', activePapers.length], ['none', 'No folder', activePapers.filter(p => !folderOf(p.id)).length], ...folderData.list.map(f => [f.id, f.name, activePapers.filter(p => folderOf(p.id) === f.id).length])].map(([id, label, n]) => (
+                (id !== 'none' || folderData.list.length > 0) && (
+                  <button key={id} onClick={() => setFolderFilter(id)} className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold border ${folderFilter === id ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-slate-600 border-slate-200'}`}>
+                    {id !== 'all' && id !== 'none' && <Icon name="Folder" size={14} />}{label}<span className={`text-xs ${folderFilter === id ? 'text-white/80' : 'text-slate-400'}`}>{n}</span>
+                  </button>
+                )
+              ))}
+              <button onClick={addFolder} className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold border border-dashed border-brand-300 text-brand-700 hover:bg-brand-50"><Icon name="FolderPlus" size={14} />New folder</button>
+            </div>
+          )}
+          {folderFilter !== 'all' && folderFilter !== 'none' && folderData.list.some(f => f.id === folderFilter) && (
+            <div className="flex gap-4 text-sm font-bold text-slate-500 mb-3 px-1">
+              <button onClick={() => renameFolder(folderFilter)} className="hover:text-brand-700">Rename folder</button>
+              <button onClick={() => deleteFolder(folderFilter)} className="hover:text-red-600">Delete folder</button>
             </div>
           )}
 
@@ -962,9 +1013,18 @@ function App() {
           ) : filteredPapers.length === 0 ? (
             <div className="text-center py-12 px-6 bg-white rounded-3xl border border-dashed border-slate-300">
               <span className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-700 inline-flex items-center justify-center mb-3"><Icon name="FileText" size={26} /></span>
-              <div className="font-bold text-slate-800">{search ? 'No papers match your search' : 'No papers yet'}</div>
-              {!search && <p className="text-sm text-slate-500 mt-1 mb-4">Make your first paper, or enter a code a colleague sent you.</p>}
-              {!search && <PrimaryBtn onClick={() => setModal('newPaper')} className="px-5 py-3"><Icon name="Plus" size={18} />New paper</PrimaryBtn>}
+              {activePapers.length > 0 && !search ? (
+                <>
+                  <div className="font-bold text-slate-800">{folderFilter === 'all' ? 'Nothing here' : 'No papers in this view'}</div>
+                  <p className="text-sm text-slate-500 mt-1">{folderFilter !== 'all' && folderFilter !== 'none' ? 'Move papers here with the folder menu on each paper.' : 'Try another folder.'}</p>
+                </>
+              ) : (
+                <>
+                  <div className="font-bold text-slate-800">{search ? 'No papers match your search' : 'No papers yet'}</div>
+                  {!search && <p className="text-sm text-slate-500 mt-1 mb-4">Make your first paper, or enter a code a colleague sent you.</p>}
+                  {!search && <PrimaryBtn onClick={() => setModal('newPaper')} className="px-5 py-3"><Icon name="Plus" size={18} />New paper</PrimaryBtn>}
+                </>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -983,6 +1043,14 @@ function App() {
                       <span className={`block text-xl font-bold ${PL.fontClass} text-slate-900 leading-snug`}>{paper.header?.examName || 'Untitled'} {PL.num(paper.header?.hijriYear || '')}{PL.yearSuffix}</span>
                       <span className={`block text-base text-slate-500 ${PL.fontClass} truncate`}>{(paper.subjects || []).map(s => s.title).join(PL.dir === 'rtl' ? ' ، ' : ', ') || '—'}</span>
                     </button>
+                    {mine && (
+                      <div className="px-4 pb-2 -mt-1">
+                        <select aria-label="Move to folder" value={folderOf(paper.id) || ''} onChange={(e) => movePaper(paper.id, e.target.value || null)} className="max-w-full text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+                          <option value="">No folder</option>
+                          {folderData.list.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <div className="flex items-center border-t border-slate-100 text-sm">
                       <span className="flex-1 px-4 text-slate-400 text-xs">{paper.lastEdited ? timeAgo(new Date(paper.lastEdited).getTime()) : ''} · {grandTotal(paper.subjects)} marks</span>
                       <button onClick={() => duplicatePaper(paper)} aria-label="Make a copy" className="px-3.5 py-3 text-slate-500 hover:bg-slate-50 inline-flex items-center gap-1.5 font-bold"><Icon name="Copy" size={16} />Copy</button>

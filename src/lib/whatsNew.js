@@ -4,6 +4,27 @@
 // Teachers see a dot on the menu until they open it. `guide` is the Guide section a highlight links to.
 export const WHATS_NEW = [
   {
+    version: '1.3',
+    date: 'November 2026',
+    title: 'Cleaner pages, less typing',
+    intro: 'Your papers now use the whole first page, every sub-question can carry its own marks, and your papers are easier to find.',
+    highlights: [
+      { icon: 'ScrollText', title: 'Header + marks table, no wasted page', text: 'The school header, class, subject, marks and the marks table sit at the top of page 1 and the questions start right under them. Choose “Exam paper” in Page style.', guide: 'layout' },
+      { icon: 'ListChecks', title: 'Marks for every sub-question', text: 'Give each الف) ب) ج) its own marks. The question’s marks add up by themselves, and so do the subject and paper totals.', guide: 'types' },
+      { icon: 'Folder', title: 'Folders and search for your papers', text: 'Make folders (for example “Annual exam” or “Grade 4”), move papers into them and search by class, exam or subject.', guide: 'start' },
+      { icon: 'Languages', title: 'Type in English, get Lisan script', text: 'Type words in English letters in any Lisan box and tap A→ع. It is a draft to check, but it saves a lot of typing, especially on a phone.', guide: 'types' },
+      { icon: 'TextCursorInput', title: 'Wider blanks, tidier ayat', text: 'Use ** for a blank that takes two words. Ayat stay lined up and the ayah number never sits alone on a line.', guide: 'quran-blanks' },
+    ],
+    items: [
+      'New first-page style “Exam paper”: header + marks table, questions start on page 1 (new papers use it)',
+      'Marks on sub-questions, ayat, sentences, multiple-choice questions and statements; totals add up by themselves',
+      'Folders on the home screen, and the search bar is always there',
+      'A→ع button: English letters typed in a Lisan box become Lisan script (a draft to check)',
+      '** makes a wider blank; several blanks in one sentence take answers separated by /',
+      'Quran ayat start at the normal side by default and keep the ayah number with the last word',
+    ],
+  },
+  {
     version: '1.2',
     date: 'October 2026',
     title: 'The Quran, your way',

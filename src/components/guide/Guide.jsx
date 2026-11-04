@@ -81,7 +81,8 @@ const SECTIONS = [
         <H3>Fine-tuning</H3>
         <ul className="list-disc ps-5 text-slate-700 space-y-1.5 mb-4 leading-relaxed">
           <li><b>Text size on paper</b> — small, normal or large. Pages are re-measured instantly, so nothing gets cut.</li>
-          <li><b>Customise…</b> — the first page (cover, name strip or none), the boxes students fill in (Name, ITS No, Roll No, Date…), question numbers (<b>Q1</b> or <b>1.</b>), sub-question numbers (a, b, c or 1, 2, 3), the page border and the footer.</li>
+          <li><b>Exam paper</b> puts the school header, class, subject, marks and the marks table at the top of page 1, with the questions right underneath — no half-empty cover page. <b>Full exam</b> keeps a separate cover page.</li>
+          <li><b>Customise…</b> — the first page (header + table, cover, name strip or none), the boxes students fill in (Name, ITS No, Roll No, Date…), question numbers (<b>Q1</b> or <b>1.</b>), sub-question numbers (a, b, c or 1, 2, 3), the page border and the footer.</li>
           <li><b>Use this style for all my new papers</b> saves your choices for next time.</li>
         </ul>
         <H3>Printing well</H3>
@@ -108,6 +109,9 @@ const SECTIONS = [
           ))}
         </div>
         <Tip><b>More options</b> inside a question lets you start it on a new page, hide its number, or hide its marks.</Tip>
+        <Tip><b>Marks for each part:</b> every sub-question (الف) ب) ج)), ayah, sentence, multiple-choice question or statement has its own <b>Marks</b> box. When you use them, the question’s marks add up by themselves and the subject and paper totals follow.</Tip>
+        <Tip><b>Blanks:</b> type <b>*</b> for a blank and <b>**</b> for a wider one (two words). If a sentence has several blanks, write their answers separated by <b>/</b>, for example <b>الذي / لم</b>.</Tip>
+        <Tip><b>Typing in English letters:</b> in any Lisan box, type the words in English (for example <b>Murtaza bhai</b>) and tap <b>A→ع</b>. The Lisan script appears in the same box. It is a draft: please check the spelling.</Tip>
         <Tip>Made a question you will use again? Open it and tap <b>Template</b>. Your templates appear under <b>Add question → Templates</b>.</Tip>
       </>
     ),

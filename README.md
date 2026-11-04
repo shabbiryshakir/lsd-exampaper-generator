@@ -56,6 +56,23 @@ the answer key, added to the word bank of a fill-in-the-blanks) and `n=0` hides 
   email FormSubmit sends to `FEEDBACK_EMAIL` and press *Activate*. Reports also appear in Menu → Admin → Feedback
   (with a dot on the menu when something is new). Publish `firestore.rules` so the `feedback` rules apply.
 
+## Tests
+
+```bash
+npm test                                   # unit tests (vitest): Lisan draft, marks, blanks, layouts
+npm run dev -- --port 5200 &               # then, in another terminal:
+BASE_URL=http://localhost:5200 npm run test:e2e   # browser tests in demo mode (needs playwright + chromium)
+```
+
+`/?demo` (dev server only) fills the home screen with sample papers — including a Quran paper and old-format papers —
+so every screen can be tested without signing in.
+
+## English → Lisan typing
+
+`src/lib/lisanDraft.js` (ported from the IzanVite invitation maker) turns English letters typed in a Lisan box into Lisan
+script: a dictionary of names/words plus phonetic spelling for the rest. It is a draft to check, never an authority.
+Add words to `WORDS` as they come up. Quran tokens (`{{q …}}`) and `*` blanks are never touched.
+
 ## Releasing (beta, live, classic)
 
 Three copies can be online at once: live (`/`), `/beta/` and `/classic/` (the version before the Quran update, branch `archive/classic-v1`).

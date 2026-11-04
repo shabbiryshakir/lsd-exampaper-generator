@@ -1,5 +1,6 @@
 import { useState, useRef, useLayoutEffect, createContext, useContext } from 'react'
-import { uid, subLabel, langOf } from '../lib/paper'
+import { uid, subLabel, langOf, itemsMarks } from '../lib/paper'
+import { draftLisanInPlace, hasEnglish } from '../lib/lisanDraft'
 import { resizeImage } from '../lib/pdf'
 import { parseRich, tokenTitle, useQuran } from '../lib/quran'
 import { QuranRun } from './QuranText'
@@ -54,12 +55,30 @@ function QuranButton({ value, onChange, caret }) {
   );
 }
 
+// "A→ع": turns English letters typed in a Lisan box into Lisan script (a draft — check the spelling).
+function LsdButton({ value, onChange }) {
+  return (
+    <button type="button" title="Turn the English letters into Lisan script" aria-label="Convert English letters to Lisan script" onClick={() => onChange(draftLisanInPlace(value))}
+      className="absolute end-11 top-1.5 h-8 px-2 rounded-lg text-sm font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 flex items-center whitespace-nowrap"><bdi>A→ع</bdi></button>
+  );
+}
+const useLsd = (value) => { const UI = useUI(); return UI.lang === 'lsd' && typeof value === 'string' && hasEnglish(value); };
+
+// A small "Marks" box for one sub-question.
+const ItemMarks = ({ value, onChange }) => (
+  <div className="flex items-center gap-3" dir="ltr">
+    <span className="text-sm font-bold text-slate-500">Marks</span>
+    <Stepper value={value} onChange={onChange} step={0.5} decimals />
+  </div>
+);
+
 // Textarea that grows with its content, so long lines are never hidden.
 export function AutoText({ value, onChange, placeholder, className = '', minRows = 1, answer = false, noQuran = false }) {
   const UI = useUI();
   const ref = useRef(null);
   const caret = useRef(null);
   const remember = (e) => { caret.current = e.target.selectionStart; };
+  const lsd = useLsd(value);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -67,9 +86,10 @@ export function AutoText({ value, onChange, placeholder, className = '', minRows
     el.style.height = el.scrollHeight + 2 + 'px';
   }, [value]);
   return (
-    <div className="relative flex-1 min-w-0">
-      <textarea ref={ref} rows={minRows} value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} resize-none overflow-hidden ${noQuran ? '' : 'pe-11'} ${className}`} />
+    <div className="relative flex-1 min-w-0" dir={UI.dir}>
+      <textarea ref={ref} rows={minRows} value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} resize-none overflow-hidden ${noQuran ? '' : lsd ? 'pe-24' : 'pe-11'} ${className}`} />
       {!noQuran && <QuranButton value={value} onChange={onChange} caret={caret} />}
+      {!noQuran && lsd && <LsdButton value={value} onChange={onChange} />}
       {!noQuran && typeof value === 'string' && value.includes('{{q') && <TokenChips value={value} onChange={onChange} />}
     </div>
   );
@@ -79,10 +99,12 @@ function TextInput({ value, onChange, placeholder, className = '', answer = fals
   const UI = useUI();
   const caret = useRef(null);
   const remember = (e) => { caret.current = e.target.selectionStart; };
+  const lsd = useLsd(value);
   return (
-    <div className="relative flex-1 min-w-0">
-      <input type="text" value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} pe-11 ${className}`} />
+    <div className="relative flex-1 min-w-0" dir={UI.dir}>
+      <input type="text" value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} ${lsd ? 'pe-24' : 'pe-11'} ${className}`} />
       <QuranButton value={value} onChange={onChange} caret={caret} />
+      {lsd && <LsdButton value={value} onChange={onChange} />}
       {typeof value === 'string' && value.includes('{{q') && <TokenChips value={value} onChange={onChange} />}
     </div>
   );
@@ -122,7 +144,7 @@ const Label = ({ i, style }) => {
 };
 
 // Generic editor for a list of { id, text } items (used by MCQ, True/False, Who said, Word list).
-function ItemList({ items, onChange, placeholder, numbering = 'numeric', renderExtra, newItem, addLabel, multiline }) {
+function ItemList({ items, onChange, placeholder, numbering = 'numeric', renderExtra, newItem, addLabel, multiline, marks }) {
   const UI = useUI();
   const update = (id, patch) => onChange(items.map(it => (it.id === id ? { ...it, ...patch } : it)));
   return (
@@ -137,6 +159,7 @@ function ItemList({ items, onChange, placeholder, numbering = 'numeric', renderE
             <RemoveBtn onClick={() => onChange(items.filter(x => x.id !== it.id))} />
           </div>
           {renderExtra && <div className="mt-2 ps-11">{renderExtra(it, (patch) => update(it.id, patch))}</div>}
+          {marks && <div className="mt-2 ps-11"><ItemMarks value={it.marks} onChange={(v) => update(it.id, { marks: v })} /></div>}
         </div>
       ))}
       <AddBtn onClick={() => onChange([...items, newItem ? newItem() : { id: uid(), text: '' }])}>{addLabel || 'Add item'}</AddBtn>
@@ -196,7 +219,10 @@ export default function QuestionEditor({ q, onChange, layout }) {
         </div>
         <div>
           <label className="block mb-1 text-sm font-bold text-slate-600">Marks</label>
-          <Stepper value={q.marks} onChange={(v) => set('marks', v)} step={0.5} decimals />
+          {itemsMarks(q) > 0
+            ? <div className="h-11 w-32 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700" title="Added up from the sub-question marks">{itemsMarks(q)}</div>
+            : <Stepper value={q.marks} onChange={(v) => set('marks', v)} step={0.5} decimals />}
+          {itemsMarks(q) > 0 && <p className="text-xs text-slate-500 mt-1 max-w-[9rem]">Added up from the sub-questions</p>}
         </div>
       </div>
 
@@ -227,6 +253,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
                     <div className="flex items-center gap-3 mt-2 ps-11" dir="ltr">
                       <span className="text-sm font-bold text-slate-500">Answer lines</span>
                       <Stepper value={sq.lines} onChange={(v) => upd({ lines: v })} />
+                      <ItemMarks value={sq.marks} onChange={(v) => upd({ marks: v })} />
                     </div>
                     {UI.answers && <div className="mt-2 ps-11"><AutoText answer value={sq.answer || ''} onChange={(v) => upd({ answer: v })} placeholder="Model answer or marking points (for the answer key)" minRows={2} /></div>}
                   </div>
@@ -239,7 +266,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
 
         {q.type === 'fillBlanks' && (
           <>
-            <Hint>Type a <b>*</b> where the blank line should go. The yellow box is the answer.</Hint>
+            <Hint>Type a <b>*</b> where a blank line should go (<b>**</b> makes a wider blank for two words). The yellow box is the answer — for several blanks in one sentence, separate the answers with <b>/</b>.</Hint>
             <div className="mb-3"><Toggle checked={q.showWordBank !== false} onChange={(v) => set('showWordBank', v)}>Show the answers as a word bank above</Toggle></div>
             <div className="space-y-2" dir={UI.dir}>
               {(q.blanks || []).map((b, i) => {
@@ -252,6 +279,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
                       <RemoveBtn onClick={() => set('blanks', q.blanks.filter(x => x.id !== b.id))} />
                     </div>
                     {(q.showWordBank !== false || UI.answers) && <div className="mt-2 ps-11 pe-11"><TextInput answer value={b.answer || ''} onChange={(v) => upd({ answer: v })} placeholder="Answer" /></div>}
+                    <div className="mt-2 ps-11"><ItemMarks value={b.marks} onChange={(v) => upd({ marks: v })} /></div>
                   </div>
                 );
               })}
@@ -283,7 +311,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
             <div className="flex items-center gap-3 mb-3 text-sm font-bold text-slate-600">
               Options <Segmented value={q.optionLayout === 'column' ? 'column' : 'row'} onChange={(v) => set('optionLayout', v)} options={[{ value: 'row', label: 'Side by side' }, { value: 'column', label: 'One per line' }]} />
             </div>
-            <ItemList items={q.items || []} onChange={(v) => set('items', v)} numbering={layout.subNumbering} placeholder="Question…" addLabel="Question"
+            <ItemList marks items={q.items || []} onChange={(v) => set('items', v)} numbering={layout.subNumbering} placeholder="Question…" addLabel="Question"
               newItem={() => ({ id: uid(), text: '', options: ['', '', ''], answer: null })}
               renderExtra={(it, patch) => <OptionsEditor options={it.options} onChange={(o) => patch({ options: o, answer: it.answer != null && it.answer >= o.length ? null : it.answer })} answer={it.answer} onAnswer={(a) => patch({ answer: a })} />} />
           </>
@@ -294,7 +322,7 @@ export default function QuestionEditor({ q, onChange, layout }) {
             <div className="flex items-center gap-3 mb-3 text-sm font-bold text-slate-600 flex-wrap">
               On paper <Segmented value={q.tfStyle === 'words' ? 'words' : 'box'} onChange={(v) => set('tfStyle', v)} options={[{ value: 'box', label: 'Empty box' }, { value: 'words', label: `( ${UI.L.t.true} / ${UI.L.t.false} )` }]} />
             </div>
-            <ItemList items={q.items || []} onChange={(v) => set('items', v)} placeholder="Statement…" addLabel="Statement"
+            <ItemList marks items={q.items || []} onChange={(v) => set('items', v)} placeholder="Statement…" addLabel="Statement"
               newItem={() => ({ id: uid(), text: '', answer: null })}
               renderExtra={UI.answers ? (it, patch) => (
                 <div className="flex gap-2">
@@ -382,6 +410,7 @@ function QuranEditor({ q, set, layout }) {
             <div className="flex items-center gap-3 mt-2 ps-11" dir="ltr">
               <span className="text-sm font-bold text-slate-500">Answer lines</span>
               <Stepper value={it.lines} onChange={(v) => update(it.id, { lines: v })} />
+              <ItemMarks value={it.marks} onChange={(v) => update(it.id, { marks: v })} />
             </div>
             {UI.answers && <div className="mt-2 ps-11"><AutoText answer value={it.answer || ''} onChange={(v) => update(it.id, { answer: v })} placeholder="Answer or marking points (for the answer key)" minRows={2} /></div>}
           </div>

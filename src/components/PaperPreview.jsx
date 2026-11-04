@@ -1,7 +1,7 @@
 import { useLayoutEffect, useEffect, useRef, useState, forwardRef } from 'react'
 import { rich, richPieces } from './QuranText'
 import { useQuran, blankedWords, hasQuranBlanks } from '../lib/quran'
-import { subjectTotal, grandTotal, subLabel, questionLabel, parseMarks, questionNumbers, langOf, optionLetter, hasAnswers, expectsAnswer } from '../lib/paper'
+import { subjectTotal, grandTotal, subLabel, questionLabel, parseMarks, questionMarks, splitBlankText, answerParts, ANSWER_SEP, questionNumbers, langOf, optionLetter, hasAnswers, expectsAnswer } from '../lib/paper'
 
 // Small safety margin (px) left empty at the bottom of each page.
 const PAGE_SAFETY = 4;
@@ -30,6 +30,16 @@ const optionRow = (options, optionLayout, R = rich) => {
   );
 };
 
+// Marks of one sub-question, printed in brackets at the end of its row.
+const itemBadge = (it, q, L) => (!q.hideMarks && parseMarks(it?.marks) > 0
+  ? <span className="font-bold whitespace-nowrap ms-auto ps-3 shrink-0">({L.num(parseMarks(it.marks))})</span>
+  : null);
+
+// A sentence with blanks: * is one blank, ** a wider one (room for two words).
+const BlankText = ({ text, R }) => splitBlankText(text).map((p, j) => (p.blank
+  ? <span key={j} className="blank-gap" style={p.size > 1 ? { minWidth: `${7 + 5 * (p.size - 1)}em` } : undefined} />
+  : <span key={j}>{R(p.text)}</span>));
+
 const subjectHeader = (sub, L, keyPrefix, extra = {}) => ({
   key: `${keyPrefix}s-${sub.id}`, subject: sub.title, keepWithNext: true, ...extra,
   node: (
@@ -42,7 +52,8 @@ const subjectHeader = (sub, L, keyPrefix, extra = {}) => ({
 
 const questionHeader = (q, num, layout, L, key, subject, reveal = false) => {
   const hasText = (q.text || '').trim() !== '';
-  const showMarks = !q.hideMarks && parseMarks(q.marks) > 0;
+  const total = questionMarks(q);
+  const showMarks = !q.hideMarks && total > 0;
   if (!hasText && num === null && !showMarks) return null;
   return {
     key, subject, keepWithNext: true,
@@ -52,7 +63,7 @@ const questionHeader = (q, num, layout, L, key, subject, reveal = false) => {
           {num !== null && <span className="me-2 underline underline-offset-[6px] decoration-1">{questionLabel(num, layout.questionLabel, layout.language)}</span>}
           {hasText && rich(q.text, { reveal, plainClass: 'underline underline-offset-[6px] decoration-1' })}
         </p>
-        {showMarks && <span className="font-bold whitespace-nowrap underline underline-offset-[6px]">({L.num(parseMarks(q.marks))})</span>}
+        {showMarks && <span className="font-bold whitespace-nowrap underline underline-offset-[6px]">({L.num(total)})</span>}
       </div>
     ),
   };
@@ -83,9 +94,10 @@ export function buildBlocks(subjects, layout) {
             richPieces(it.text).forEach((piece, n, all) => out.push({
               key: `${k}-qi${it.id}${n ? `-${n}` : ''}`, subject, keepWithNext: n === all.length - 1 && lines > 0,
               node: (
-                <div className={`flex gap-2 items-start px-3 pt-1 whitespace-pre-wrap ${center ? 'justify-center text-center' : ''}`}>
-                  {q.showLabels && <span className="font-bold whitespace-nowrap">{n === 0 ? subLabel(i, layout.subNumbering, lang) : <span className="invisible">{subLabel(i, layout.subNumbering, lang)}</span>}</span>}
-                  <p>{piece}</p>
+                <div className="flex gap-2 items-start px-3 pt-1 whitespace-pre-wrap">
+                  {q.showLabels && <span className="font-bold whitespace-nowrap min-w-[2.2em]">{n === 0 ? subLabel(i, layout.subNumbering, lang) : <span className="invisible">{subLabel(i, layout.subNumbering, lang)}</span>}</span>}
+                  <p className={`flex-1 min-w-0 ${center ? 'text-center' : ''}`}>{piece}</p>
+                  {n === 0 && itemBadge(it, q, L)}
                 </div>
               ),
             }));
@@ -104,7 +116,8 @@ export function buildBlocks(subjects, layout) {
               node: (
                 <div className="flex gap-2 items-start px-3 pt-1 whitespace-pre-wrap">
                   <span className="font-bold whitespace-nowrap">{subLabel(i, layout.subNumbering, lang)}</span>
-                  <p>{R(sq.text)}</p>
+                  <p className="flex-1 min-w-0">{R(sq.text)}</p>
+                  {itemBadge(sq, q, L)}
                 </div>
               ),
             });
@@ -115,7 +128,7 @@ export function buildBlocks(subjects, layout) {
       }
 
       else if (q.type === 'fillBlanks') {
-        const bank = (q.blanks || []).flatMap(b => [(b.answer || '').trim(), ...blankedWords(b.text)]).filter(Boolean).sort((a, b) => a.localeCompare(b, lang === 'en' ? 'en' : 'ar'));
+        const bank = (q.blanks || []).flatMap(b => [...answerParts(b), ...blankedWords(b.text)]).filter(Boolean).sort((a, b) => a.localeCompare(b, lang === 'en' ? 'en' : 'ar'));
         if (q.showWordBank !== false && bank.length > 0) {
           out.push({
             key: `${k}-bank`, subject, keepWithNext: true,
@@ -132,12 +145,13 @@ export function buildBlocks(subjects, layout) {
           out.push({
             key: `${k}-b${b.id}`, subject,
             node: (
-              <p className="px-3 py-1 leading-[2.4em] whitespace-pre-wrap">
-                <span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>
-                {(b.text || '').split('*').map((part, j, arr) => (
-                  <span key={j}>{R(part)}{j !== arr.length - 1 && <span className="blank-gap" />}</span>
-                ))}
-              </p>
+              <div className="flex items-start px-3">
+                <p className="flex-1 min-w-0 py-1 leading-[2.4em] whitespace-pre-wrap">
+                  <span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>
+                  <BlankText text={b.text} R={R} />
+                </p>
+                {itemBadge(b, q, L)}
+              </div>
             ),
           });
         });
@@ -170,7 +184,7 @@ export function buildBlocks(subjects, layout) {
             key: `${k}-i${it.id}`, subject,
             node: (
               <div className="px-3 py-1">
-                <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, layout.subNumbering, lang)}</span>{R(it.text)}</p>
+                <div className="flex items-start"><p className="flex-1 min-w-0 whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, layout.subNumbering, lang)}</span>{R(it.text)}</p>{itemBadge(it, q, L)}</div>
                 {optionRow(it.options, q.optionLayout, R)}
               </div>
             ),
@@ -185,9 +199,12 @@ export function buildBlocks(subjects, layout) {
             node: (
               <div className="flex justify-between items-start gap-4 px-3 py-1">
                 <p className="whitespace-pre-wrap"><span className="font-bold me-2">{subLabel(i, 'numeric', lang)}</span>{R(it.text)}</p>
-                {q.tfStyle === 'words'
-                  ? <span className="whitespace-nowrap">( {L.t.true} / {L.t.false} )</span>
-                  : <span className="inline-block w-[2.2em] h-[1.4em] border-2 border-black shrink-0 mt-1" />}
+                <span className="flex items-start gap-3 shrink-0">
+                  {itemBadge(it, q, L)}
+                  {q.tfStyle === 'words'
+                    ? <span className="whitespace-nowrap">( {L.t.true} / {L.t.false} )</span>
+                    : <span className="inline-block w-[2.2em] h-[1.4em] border-2 border-black shrink-0 mt-1" />}
+                </span>
               </div>
             ),
           });
@@ -316,9 +333,15 @@ export function buildKeyBlocks(subjects, layout) {
   const vary = <span className="italic text-gray-600 text-[0.9em]">{note}</span>;
   // "The sun rises in the *." -> the sentence with the answer written into the gap.
   const filled = (text, answer) => {
-    const parts = (text || '').split('*');
-    const answers = parts.length > 2 ? (answer || '').split(/\s*[/،,]\s*/) : [answer];
-    return parts.map((p, j) => <span key={j}>{R(p)}{j < parts.length - 1 && <span className="font-bold underline underline-offset-4">{answers[j] ?? answers[0] ?? ''}</span>}</span>);
+    const segs = splitBlankText(text);
+    const blanks = segs.filter(x => x.blank).length;
+    const answers = blanks > 1 ? String(answer || '').split(ANSWER_SEP) : [answer];
+    let k = -1;
+    return segs.map((p, j) => {
+      if (!p.blank) return <span key={j}>{R(p.text)}</span>;
+      k += 1;
+      return <span key={j} className="font-bold underline underline-offset-4">{answers[k] ?? answers[0] ?? ''}</span>;
+    });
   };
 
   (subjects || []).forEach((sub) => {
@@ -498,6 +521,48 @@ const CompactHeader = ({ header, school, subjects, fields, L }) => (
   </div>
 );
 
+// "Exam paper" first page: school header, class / subject / marks, the student's details, then the
+// marks table, and the questions start right underneath (no half-empty cover page).
+const TableHeader = ({ header, school, subjects, fields, L }) => {
+  const list = (fields || []).filter(f => (f || '').trim() !== '');
+  const names = subjects.map(s => s.title).filter(Boolean).join(L.dir === 'rtl' ? ' ، ' : ', ');
+  const dense = subjects.length > 5;
+  return (
+    <div className="mb-3 shrink-0">
+      <div className="border-2 border-black px-3 pt-1 pb-2 mb-3">
+        {L.dir === 'rtl' && <div className="text-center text-[0.7em] leading-none font-sans" dir="ltr">۷۸٦</div>}
+        <div className="relative flex items-center justify-center min-h-[4.6em]">
+          {school?.logo && <img src={school.logo} alt="" className="absolute start-0 top-0 h-[4.4em] max-w-[5em] object-contain" />}
+          <div className="text-center px-[5.5em]">
+            <div className="text-[1.5em] font-bold leading-snug font-arabic" dir="rtl">{school?.nameAr}</div>
+            <div className="font-bold leading-snug">{header.examName} {yearText(header, L)}</div>
+          </div>
+          <div className="absolute end-0 top-0 text-center">
+            <div className="border-2 border-black px-3 py-0.5 font-sans font-bold text-[0.9em] whitespace-nowrap" dir="ltr">{header.paperNumber}</div>
+            <div className="font-sans text-[0.65em] mt-0.5 whitespace-nowrap" dir="ltr">{L.t.time}: {header.time}</div>
+          </div>
+        </div>
+        <div className="flex justify-between gap-4 font-bold mt-1">
+          <span>{L.t.classOf} : {L.dir === 'rtl' ? String(header.className || '').replace(/^الدرجة\s*/, '') : header.className}</span>
+          <span className="flex-1 text-center">{L.t.subjectOf} : {names}</span>
+          <span>{L.t.marksOf} : {L.num(grandTotal(subjects))}</span>
+        </div>
+        {list.length > 0 && (
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-2 mt-2">
+            {list.map((f, i) => (
+              <span key={i} className="flex items-end gap-2 flex-1 min-w-[9em] font-bold whitespace-nowrap" dir={isLatin(f) ? 'ltr' : L.dir}>
+                <span className={L.dir === 'rtl' && isLatin(f) ? 'font-sans text-[0.7em]' : ''}>{f} :</span>
+                <span className="flex-1 border-b border-black h-[1.2em]" />
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <MarksTable subjects={subjects} cell={dense ? 'p-0.5' : 'p-1.5'} L={L} />
+    </div>
+  );
+};
+
 const Sheet = forwardRef(({ layout, className = '', children }, ref) => {
   const L = langOf(layout);
   return (
@@ -562,6 +627,7 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
 
   const cover = !isKey && layout.coverStyle === 'full';
   const compact = !isKey && layout.coverStyle === 'compact';
+  const tableHead = !isKey && layout.coverStyle === 'table';
   // While a re-measure is pending, keep showing the last layout (it is replaced before the browser paints),
   // so the page never flashes empty and the scroll position is kept.
   const pages = measure ? paginate(blocks, measure.heights, measure.capFirst, measure.capRest) : null;
@@ -583,9 +649,11 @@ export default function PaperPreview({ header, subjects, school, layout, pagesRe
   }, [settled, focusQuestionId, pagesRef, scrollRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const keyTitle = isKey ? `${L.t.answerKey} — ${header.examName} ${yearText(header, L)}` : null;
-  const chrome = (isFirst) => compact && isFirst
-    ? <CompactHeader header={header} school={school} subjects={subjects} fields={layout.studentFields} L={L} />
-    : <RunningHeader header={header} L={L} title={keyTitle} />;
+  const chrome = (isFirst) => tableHead && isFirst
+    ? <TableHeader header={header} school={school} subjects={subjects} fields={layout.studentFields} L={L} />
+    : compact && isFirst
+      ? <CompactHeader header={header} school={school} subjects={subjects} fields={layout.studentFields} L={L} />
+      : <RunningHeader header={header} L={L} title={keyTitle} />;
   const footer = (pageNo, pageBlocks) => layout.showFooter
     ? <Footer header={header} subjects={[...new Set(pageBlocks.map(b => b.subject).filter(Boolean))]} pageNo={pageNo} pageCount={pageCount} />
     : <PageNumberOnly pageNo={pageNo} L={L} />;

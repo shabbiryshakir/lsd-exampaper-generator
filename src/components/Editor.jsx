@@ -3,7 +3,7 @@ import QuranPicker from './QuranPicker'
 import { describeTokens } from '../lib/quran'
 import QuestionEditor, { EditorContext, editorContextFor, Toggle } from './QuestionEditor'
 import Icon from './Icon'
-import { TIME_OPTIONS, QUESTION_TYPES, LANGUAGES, langOf, newQuestion, subjectTotal, grandTotal, uid, questionNumbers, parseMarks, cloneWithNewIds, PAGE_PRESETS, presetOf, answerStats } from '../lib/paper'
+import { TIME_OPTIONS, QUESTION_TYPES, LANGUAGES, langOf, newQuestion, subjectTotal, grandTotal, uid, questionNumbers, parseMarks, questionMarks, cloneWithNewIds, PAGE_PRESETS, presetOf, answerStats } from '../lib/paper'
 import { BUILTIN_QUESTION_TEMPLATES } from '../lib/templates'
 
 const Section = ({ icon, title, summary, open, onToggle, children }) => (
@@ -136,7 +136,7 @@ function QuestionCard({ q, num, layout, open, onOpen, onChange, onMove, onDuplic
         <button type="button" onClick={onOpen} className="flex-1 flex items-center gap-2.5 min-w-0 text-left py-1">
           <span className={`${L.fontClass} text-xl text-brand-700 font-bold w-11 text-center shrink-0`}>{shortLabel(num, layout)}</span>
           <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5 text-xs text-slate-500 font-bold"><Icon name={type?.icon} size={14} />{type?.label}{parseMarks(q.marks) > 0 ? ` · ${parseMarks(q.marks)} marks` : ''}</span>
+            <span className="flex items-center gap-1.5 text-xs text-slate-500 font-bold"><Icon name={type?.icon} size={14} />{type?.label}{questionMarks(q) > 0 ? ` · ${questionMarks(q)} marks` : ''}</span>
             <span className={`block ${L.fontClass} text-lg text-slate-800 truncate`} dir={L.dir}>{summarize(q)}</span>
           </span>
         </button>
@@ -296,7 +296,7 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
           {moreStyle && (
             <div className="border-t border-slate-100">
               <Row label="First page">
-                <Seg value={layout.coverStyle} onChange={(v) => setL('coverStyle', v)} options={[{ value: 'full', label: 'Cover page' }, { value: 'compact', label: 'Name strip' }, { value: 'none', label: 'None' }]} />
+                <Seg value={layout.coverStyle} onChange={(v) => setL('coverStyle', v)} options={[{ value: 'table', label: 'Header + table' }, { value: 'full', label: 'Cover page' }, { value: 'compact', label: 'Name strip' }, { value: 'none', label: 'None' }]} />
               </Row>
               {layout.coverStyle !== 'none' && (
                 <Row label="Boxes for the student to fill in">

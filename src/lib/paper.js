@@ -22,7 +22,7 @@ export const LANGUAGES = {
     header: { className: 'الدرجة الرابعة', examName: 'الامتحان السنوي', hijriYear: '1447' },
     firstSubject: 'تعليم القرآن',
     studentFields: ['نام', 'ITS NO', 'ROLL NO'],
-    t: { no: 'رقم', subjects: 'المواضيع', marks: 'ماركس', obtained: 'المحصول', total: 'جملة', time: 'Time', speaker: 'القائل', listener: 'المقول له', true: 'صحيح', false: 'غلط', answerKey: 'الجوابات', modelAnswer: 'جواب' },
+    t: { no: 'رقم', subjects: 'المواضيع', marks: 'ماركس', obtained: 'المحصول', total: 'جملة', time: 'Time', classOf: 'الدرجة', subjectOf: 'موضوع', marksOf: 'مارکس', speaker: 'القائل', listener: 'المقول له', true: 'صحيح', false: 'غلط', answerKey: 'الجوابات', modelAnswer: 'جواب' },
     keyNote: 'الجواب حسب فهم الطالب',
     defaults: {
       subjective: 'نيححسس سؤالو نا جوابو لكهو :',
@@ -45,7 +45,7 @@ export const LANGUAGES = {
     header: { className: 'Grade 4', examName: 'Annual Examination', hijriYear: '2026' },
     firstSubject: 'English',
     studentFields: ['Name', 'ITS No', 'Roll No'],
-    t: { no: 'No.', subjects: 'Subject', marks: 'Marks', obtained: 'Obtained', total: 'Total', time: 'Time', speaker: 'Speaker', listener: 'Spoken to', true: 'True', false: 'False', answerKey: 'Answer Key', modelAnswer: 'Answer' },
+    t: { no: 'No.', subjects: 'Subject', marks: 'Marks', obtained: 'Obtained', total: 'Total', time: 'Time', classOf: 'Class', subjectOf: 'Subject', marksOf: 'Marks', speaker: 'Speaker', listener: 'Spoken to', true: 'True', false: 'False', answerKey: 'Answer Key', modelAnswer: 'Answer' },
     keyNote: 'Answers may vary — award marks for correct points.',
     defaults: {
       subjective: 'Answer the following questions:',
@@ -76,7 +76,8 @@ export const DEFAULT_HEADER = {
 
 export const DEFAULT_LAYOUT = {
   language: 'lsd',           // 'lsd' (right-to-left, Kanz al Marjaan) | 'en' (left-to-right, English)
-  coverStyle: 'full',        // 'full' = separate cover page, 'compact' = info strip on top of page 1, 'none'
+  coverStyle: 'table',       // 'table' = header + marks table on top of page 1, questions follow (no wasted space)
+                             // 'full' = separate cover page, 'compact' = info strip on top of page 1, 'none'
   pageBorder: true,
   showFooter: true,
   questionLabel: 'sin',      // 'sin' => س١ / Q1 , 'number' => ١. / 1.
@@ -98,7 +99,8 @@ export const pickPrint = (layout) => Object.fromEntries(PRINT_KEYS.filter(k => l
 
 // Ready-made combinations of the print settings, so teachers don't need to set each one.
 export const PAGE_PRESETS = [
-  { id: 'exam', icon: 'BookOpen', label: 'Full exam', hint: 'Cover page with marks table', patch: { coverStyle: 'full', pageBorder: true, showFooter: true } },
+  { id: 'paper', icon: 'ScrollText', label: 'Exam paper', hint: 'Header + marks table, questions follow', patch: { coverStyle: 'table', pageBorder: true, showFooter: true } },
+  { id: 'exam', icon: 'BookOpen', label: 'Full exam', hint: 'Separate cover page with marks table', patch: { coverStyle: 'full', pageBorder: true, showFooter: true } },
   { id: 'test', icon: 'FileText', label: 'Class test', hint: 'Name strip, no cover page', patch: { coverStyle: 'compact', pageBorder: true, showFooter: true } },
   { id: 'simple', icon: 'File', label: 'Simple sheet', hint: 'Just the questions', patch: { coverStyle: 'none', pageBorder: false, showFooter: false } },
 ];
@@ -122,7 +124,12 @@ export const parseMarks = (m) => {
 };
 
 const round2 = (n) => Math.round(n * 100) / 100;
-export const subjectTotal = (subject) => round2((subject.questions || []).reduce((t, q) => t + parseMarks(q.marks), 0));
+// Sub-questions (written parts, ayat, sentences, MCQs, statements…) can carry their own marks.
+// When they do, the question's marks are the sum of them; otherwise the marks typed on the question are used.
+export const SUB_KEYS = ['subQuestions', 'blanks', 'items'];
+export const itemsMarks = (q) => round2(SUB_KEYS.reduce((t, k) => t + (Array.isArray(q?.[k]) ? q[k] : []).reduce((s, it) => s + parseMarks(it?.marks), 0), 0));
+export const questionMarks = (q) => { const sum = itemsMarks(q); return sum > 0 ? sum : parseMarks(q?.marks); };
+export const subjectTotal = (subject) => round2((subject.questions || []).reduce((t, q) => t + questionMarks(q), 0));
 export const grandTotal = (subjects) => round2((subjects || []).reduce((t, s) => t + subjectTotal(s), 0));
 
 export const subLabel = (index, style, language = 'lsd') => {
@@ -165,7 +172,7 @@ export const newQuestion = (type, language = 'lsd') => {
   const L = LANGUAGES[language] || LANGUAGES.lsd;
   const base = { id: uid(), type, marks: 0, text: L.defaults[type] || '' };
   switch (type) {
-    case 'quran': return { ...base, align: 'center', showLabels: false, items: [{ id: uid(), text: '', lines: 0, answer: '' }] };
+    case 'quran': return { ...base, align: 'start', showLabels: false, items: [{ id: uid(), text: '', lines: 0, answer: '' }] };
     case 'subjective': return { ...base, subQuestions: [{ id: uid(), text: '', lines: 3, answer: '' }] };
     case 'fillBlanks': return { ...base, showWordBank: true, blanks: [{ id: uid(), text: '', answer: '' }] };
     case 'match': return { ...base, pairs: [{ right: '', left: '' }] };
@@ -255,6 +262,7 @@ export const fromCloud = (v) => {
 // Papers saved before layout options existed get the defaults (full cover page, as before).
 export const normalizeLayout = (layout) => {
   const l = { ...DEFAULT_LAYOUT, ...(layout || {}) };
+  if (!layout || layout.coverStyle === undefined) l.coverStyle = 'full'; // very old papers keep the cover page they were printed with
   if (!Array.isArray(l.studentFields)) l.studentFields = DEFAULT_LAYOUT.studentFields;
   if (!LANGUAGES[l.language]) l.language = 'lsd';
   return l;
@@ -291,4 +299,20 @@ export const answerStats = (subjects) => {
   let total = 0, done = 0;
   (subjects || []).forEach(s => (s.questions || []).forEach(q => { if (expectsAnswer(q)) { total++; if (hasAnswers(q)) done++; } }));
   return { total, done };
+};
+
+// ---------------------------------------------------------------------------
+// Fill-in-the-blanks sentences
+//   *   one blank          **  a wider blank (room for two words)          ***  wider still
+// Several blanks in one sentence take their answers separated with  /  |  ،  or a comma.
+// ---------------------------------------------------------------------------
+export const BLANK_SPLIT = /(\*+)/;
+export const splitBlankText = (text) => String(text ?? '').split(BLANK_SPLIT).map((part, i) => (i % 2 ? { blank: true, size: part.length } : { blank: false, text: part }));
+export const blankCount = (text) => (String(text ?? '').match(/\*+/g) || []).length;
+export const ANSWER_SEP = /\s*[/|،,]\s*/;
+// The separate answers of one sentence, one per blank (a single answer stays whole).
+export const answerParts = (b) => {
+  const answer = String(b?.answer ?? '').trim();
+  if (!answer) return [];
+  return blankCount(b?.text) > 1 ? answer.split(ANSWER_SEP).map(a => a.trim()).filter(Boolean) : [answer];
 };

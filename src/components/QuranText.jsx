@@ -21,8 +21,9 @@ export function QuranRun({ token, reveal = false, onWord, marked }) {
     } else {
       node = <span key={`w${a}-${i}`} className="q-w">{pieces}</span>;
     }
-    nodes.push(node, ' ');
-    if (last && token.numbers) nodes.push(<span key={`n${a}`} className="q-end">{`۝${ayahNumber(a)}`}</span>, ' ');
+    // The last word and the ayah-number ornament stay together, so the ornament never wraps onto a line of its own.
+    if (last && token.numbers) nodes.push(<span key={`g${a}`} className="q-nowrap">{node}{' '}<span className="q-end">{`۝${ayahNumber(a)}`}</span></span>, ' ');
+    else nodes.push(node, ' ');
   });
   return <span className="quran" dir="rtl" lang="ar" title={tokenTitle(token)}>{nodes}</span>;
 }
