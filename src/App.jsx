@@ -35,6 +35,7 @@ function App() {
   const [pageOverflow, setPageOverflow] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(() => { try { return localStorage.getItem('printHintDismissed') === '1'; } catch (e) { return false; } });
   const savedSig = useRef('');
+  const loadedEdited = useRef(null); // lastEdited of the cloud copy we last loaded/saved (detects edits from another device)
 
   const [schoolSettings, setSchoolSettings] = useState(() => {
     try {
@@ -66,7 +67,7 @@ function App() {
       setAppState(['editor', 'preview', 'answers', 'dashboard'].includes(demoView) ? demoView : 'editor');
       savedSig.current = '';
       // test hook (dev server + ?demo only): lets the e2e suite load arbitrary papers
-      window.__paper = { setSubjects, setHeaderData, setAppState, setSchoolSettings };
+      window.__paper = { setSubjects, setHeaderData, setAppState, setSchoolSettings, normalizeSubjects };
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -219,13 +220,26 @@ function App() {
       const payload = paperPayload();
       if (JSON.stringify(payload).length > 900000) throw Object.assign(new Error('too-large'), { code: 'too-large' });
       if (currentPaperId) {
-        await updateDoc(doc(db, "papers", currentPaperId), payload);
+        const remote = await getDoc(doc(db, "papers", currentPaperId));
+        if (!remote.exists()) {
+          if (!window.confirm('This paper no longer exists online (deleted on another device?). Save it again as a new paper?')) { setIsSaving(false); return; }
+          const docRef = await addDoc(collection(db, "papers"), payload);
+          setCurrentPaperId(docRef.id);
+        } else {
+          const remoteEdited = remote.data().lastEdited || null;
+          if (loadedEdited.current && remoteEdited && remoteEdited !== loadedEdited.current &&
+              !window.confirm('This paper was changed on another device or tab after you opened it.\n\nOK = overwrite it with what you see here.\nCancel = keep it as it is online (your edits stay here as a draft).')) {
+            setIsSaving(false); return;
+          }
+          await updateDoc(doc(db, "papers", currentPaperId), payload);
+        }
         notify("Paper saved ✓", "success");
       } else {
         const docRef = await addDoc(collection(db, "papers"), payload);
         setCurrentPaperId(docRef.id);
         notify("New paper saved ✓", "success");
       }
+      loadedEdited.current = payload.lastEdited;
       savedSig.current = paperSig;
       clearDraft(user.uid);
       loadUserPapers(user.uid);
@@ -258,6 +272,7 @@ function App() {
   };
 
   const startNewPaper = () => {
+    loadedEdited.current = null;
     setCurrentPaperId(null);
     setCurrentFolderId(null);
     setHeaderData({ ...DEFAULT_HEADER, hijriYear: DEFAULT_HIJRI_YEAR });
@@ -268,6 +283,7 @@ function App() {
   };
 
   const openSavedPaper = (paper) => {
+    loadedEdited.current = paper.lastEdited || null;
     setCurrentPaperId(paper.id);
     setCurrentFolderId(paper.folderId || null);
 

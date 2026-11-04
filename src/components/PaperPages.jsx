@@ -185,6 +185,15 @@ export default function PaperPages({ paperData, subjects, school, showAnswers = 
 
   useEffect(() => { setSlack([]); passes.current = 0 }, [sig])
 
+  // The Arabic font may finish loading after the first layout; text then reflows, so measure again.
+  const [, setFontTick] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const again = () => { if (alive) { passes.current = 0; setFontTick((t) => t + 1) } }
+    if (document.fonts) { document.fonts.ready.then(again); document.fonts.addEventListener?.('loadingdone', again) }
+    return () => { alive = false; document.fonts?.removeEventListener?.('loadingdone', again) }
+  }, [])
+
   const pages = useMemo(
     () => generatePages(subjects, { coverHeight: compact ? coverHeightFor(subjects.length) : 0, slack: compact ? slack : slack.slice(1) }),
     [subjects, compact, slack]

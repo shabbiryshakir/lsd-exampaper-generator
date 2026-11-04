@@ -238,6 +238,29 @@ section('9. Phones (390px)')
   check('dashboard has no sideways scrolling on a phone', await pd.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2))
 }
 
+section('9b. Papers saved by the OLD app version open correctly')
+{
+  const pg = await newPage('?demo=preview')
+  const legacy = [
+    { id: 11, title: 'تعليم القرآن', questions: [
+      { id: 12, type: 'subjective', text: 'اكتب', marks: 6, subQuestions: [{ id: 13, text: 'أ', lines: 3 }, { id: 14, text: 'ب', lines: 2 }] },
+      { id: 15, type: 'fillBlanks', text: 'املأ', marks: 4, showWordBank: true, blanks: [{ id: 16, text: 'الله *', answer: 'أحد' }, { id: 17, text: 'قل هو * أحد', answer: 'الله' }] },
+      { id: 18, type: 'fillBlanks', text: 'قديم جدا', marks: 2, content: 'سطر *\nسطر آخر *' },
+      { id: 19, type: 'match', text: 'صل', marks: 3, pairs: [{ right: 'أ', left: 'ب' }, { right: 'ج', left: 'د' }] },
+      { id: 20, type: 'subjective', text: 'q', marks: 1, questionText: 'سؤال قديم', lines: 2 },
+    ] },
+  ]
+  await pg.evaluate((l) => window.__paper.setSubjects(window.__paper.normalizeSubjects(l)), legacy)
+  await pg.waitForTimeout(400)
+  const t = (await pg.locator('.a4-sheet').allInnerTexts()).join(' ').replace(/\s+/g, ' ')
+  check('old subjective sub-questions keep their text and lines', t.includes('الف)') && t.includes('ب)'))
+  check('old fill-in-the-blank sentences and word bank survive', t.includes('قل هو') && t.includes('أحد'))
+  check('very old "content" blanks are converted', t.includes('سطر آخر'))
+  check('old match pairs survive', t.includes('صل'))
+  check('old paper marks total (6+4+2+3+1 = 16) is right', (await pg.locator('.subject-marks').first().innerText()) === '١٦')
+  check('old paper has no overflow and no errors', (await overflow(pg)).length === 0 && pg.errors.length === 0, pg.errors.join(';'))
+}
+
 section('10. Safety nets: draft, unsaved warning, save shortcut')
 {
   const pg = await newPage('?demo=editor')
