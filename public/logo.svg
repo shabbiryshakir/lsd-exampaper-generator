@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="116" fill="#18625d"/>
+  <path d="M150 88 h160 l62 62 v274 a20 20 0 0 1 -20 20 H150 a20 20 0 0 1 -20 -20 V108 a20 20 0 0 1 20 -20z" fill="#fbf7ee"/>
+  <path d="M310 88 v46 a16 16 0 0 0 16 16 h46z" fill="#d6f2ed"/>
+  <text x="251" y="262" text-anchor="middle" font-family="Georgia, 'Noto Serif', serif" font-weight="700" font-size="92" fill="#18625d">LSD</text>
+  <rect x="172" y="306" width="168" height="14" rx="7" fill="#7ccfc3"/>
+  <rect x="172" y="344" width="120" height="14" rx="7" fill="#7ccfc3"/>
+  <rect x="172" y="382" width="148" height="14" rx="7" fill="#f2b544"/>
+</svg>

@@ -2,12 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>paper-maker</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#18625d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LSD Paper Maker" />
+    <meta name="description" content="A free community tool for teachers to make LSD and English exam papers and answer keys." />
+    <title>LSD Paper Maker</title>
+    <style>
+      /* Splash shown instantly while the app loads */
+      .boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #f6f7f5; font-family: system-ui, sans-serif; }
+      .boot img { width: 84px; height: 84px; filter: drop-shadow(0 12px 24px rgba(7,38,37,.25)); }
+      .boot b { font-size: 28px; color: #0f172a; letter-spacing: -0.02em; }
+      .boot span { font-size: 14px; color: #64748b; }
+      .boot i { margin-top: 10px; width: 28px; height: 28px; border: 3px solid #d6f2ed; border-top-color: #18625d; border-radius: 50%; animation: spin .8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot"><img src="/logo.svg" alt="" /><b>LSD Paper Maker</b><span>Exam papers for LSD teachers</span><i></i></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

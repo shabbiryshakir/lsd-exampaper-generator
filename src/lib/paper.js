@@ -1,0 +1,318 @@
+// Paper data model: languages, defaults, factories, normalisation of old saved papers, and formatting helpers.
+import { hasQuranBlanks } from './quran'
+
+export const TIME_OPTIONS = ['30 Mins', '45 Mins', '1 Hr', '1 Hr 15 Mins', '1 Hr 30 Mins', '1 Hr 45 Mins', '2 Hrs', '2.5 Hrs', '3 Hrs'];
+
+const ABJAD_LABELS = ['الف', 'ب', 'ج', 'د', 'ه', 'و', 'ز', 'ح', 'ط', 'ي', 'ك', 'ل', 'م', 'ن', 'س', 'ع', 'ف', 'ص', 'ق', 'ر', 'ش', 'ت', 'ث', 'خ', 'ذ', 'ض', 'ظ', 'غ'];
+const ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
+export const toArabicNumerals = (num) => (num == null ? '' : String(num).replace(/[0-9]/g, w => ARABIC_DIGITS[+w]));
+
+// ---------------------------------------------------------------------------
+// LANGUAGES — everything printed on the paper that is not typed by the teacher.
+// ---------------------------------------------------------------------------
+export const LANGUAGES = {
+  lsd: {
+    name: 'Lisan ud Dawat',
+    dir: 'rtl',
+    fontClass: 'font-arabic',
+    num: toArabicNumerals,
+    yearSuffix: 'هـ',
+    classes: ['روضة أطفال', 'الدرجة الأولى', 'الدرجة الثانية', 'الدرجة الثالثة', 'الدرجة الرابعة', 'الدرجة الخامسة', 'الدرجة السادسة', 'الدرجة السابعة', 'الدرجة الثامنة', 'الدرجة التاسعة', 'الدرجة العاشرة'],
+    header: { className: 'الدرجة الرابعة', examName: 'الامتحان السنوي', hijriYear: '1447' },
+    firstSubject: 'تعليم القرآن',
+    studentFields: ['نام', 'ITS NO', 'ROLL NO'],
+    t: { no: 'رقم', subjects: 'المواضيع', marks: 'ماركس', obtained: 'المحصول', total: 'جملة', time: 'Time', classOf: 'الدرجة', subjectOf: 'موضوع', marksOf: 'مارکس', speaker: 'القائل', listener: 'المقول له', true: 'صحيح', false: 'غلط', answerKey: 'الجوابات', modelAnswer: 'جواب' },
+    keyNote: 'الجواب حسب فهم الطالب',
+    defaults: {
+      subjective: 'نيححسس سؤالو نا جوابو لكهو :',
+      fillBlanks: 'خالي جككه نسس اهنا صحيح جواب سي ثثوري كرو :',
+      match: 'ثثظظلا column  نسس بيجا column ما اهنا صحيح جوابو ساتهسس جورٌو :',
+      mcq: 'اختر الجواب الصحيح :',
+      trueFalse: 'ضع علامة ✓ أمام الصحيح و ✗ أمام الخطأ :',
+      whoSaid: 'من قال لمن ؟',
+      wordList: 'اكتب معاني الألفاظ الآتية :',
+      quran: 'اقرأ الآيات الكريمة ثم أجب :',
+    },
+  },
+  en: {
+    name: 'English',
+    dir: 'ltr',
+    fontClass: 'font-english',
+    num: (n) => (n == null ? '' : String(n)),
+    yearSuffix: '',
+    classes: ['Nursery', 'KG', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'],
+    header: { className: 'Grade 4', examName: 'Annual Examination', hijriYear: '2026' },
+    firstSubject: 'English',
+    studentFields: ['Name', 'ITS No', 'Roll No'],
+    t: { no: 'No.', subjects: 'Subject', marks: 'Marks', obtained: 'Obtained', total: 'Total', time: 'Time', classOf: 'Class', subjectOf: 'Subject', marksOf: 'Marks', speaker: 'Speaker', listener: 'Spoken to', true: 'True', false: 'False', answerKey: 'Answer Key', modelAnswer: 'Answer' },
+    keyNote: 'Answers may vary — award marks for correct points.',
+    defaults: {
+      subjective: 'Answer the following questions:',
+      fillBlanks: 'Fill in the blanks with the correct word:',
+      match: 'Match column A with column B:',
+      mcq: 'Choose the correct answer:',
+      trueFalse: 'Write True or False:',
+      whoSaid: 'Who said to whom?',
+      wordList: 'Write the meanings of the following words:',
+      quran: 'Read the following ayat and answer:',
+    },
+  },
+};
+export const langOf = (layout) => LANGUAGES[layout?.language] || LANGUAGES.lsd;
+
+// Kept for older imports.
+export const DARAJAH_OPTIONS = LANGUAGES.lsd.classes;
+
+export const DEFAULT_SCHOOL_INFO = { nameAr: 'پنجتنية هاير سيكندري اسكول - برواني', logo: '' };
+
+export const DEFAULT_HEADER = {
+  className: 'الدرجة الرابعة',
+  examName: 'الامتحان السنوي',
+  hijriYear: '1447',
+  paperNumber: 'Paper 1',
+  time: '1 Hr 30 Mins',
+};
+
+export const DEFAULT_LAYOUT = {
+  language: 'lsd',           // 'lsd' (right-to-left, Kanz al Marjaan) | 'en' (left-to-right, English)
+  coverStyle: 'table',       // 'table' = header + marks table on top of page 1, questions follow (no wasted space)
+                             // 'full' = separate cover page, 'compact' = info strip on top of page 1, 'none'
+  pageBorder: true,
+  showFooter: true,
+  questionLabel: 'sin',      // 'sin' => س١ / Q1 , 'number' => ١. / 1.
+  subNumbering: 'abjad',     // 'abjad' => الف) ب) / a) b) , 'numeric' => ١) ٢) / 1) 2)
+  textSize: 'normal',        // 'normal' | 'small' | 'large'
+  studentFields: ['نام', 'ITS NO', 'ROLL NO'],  // boxes for the student to fill in; teachers can rename/add/remove
+  keyQuestions: true,        // answer key repeats each question's wording
+  keyAll: true,              // answer key lists every question; written ones without a model answer get the marking note
+  keyNote: '',               // marking note for answers that vary ('' = the language default)
+  quranFont: 'mushaf',       // Quran text: 'mushaf' (KFGQPC Hafs, Madani mushaf style) | 'naskh' (Scheherazade New)
+  quranColors: true,         // tajweed colours on Quran text (turn off for black-and-white printing)
+  quranSize: 'normal',       // 'small' | 'normal' | 'large' | 'xlarge'
+};
+
+// Settings that only change how a paper is printed. On a paper shared between teachers each
+// teacher keeps their own, so one school's cover page or border never changes another's.
+export const PRINT_KEYS = ['coverStyle', 'pageBorder', 'showFooter', 'textSize', 'studentFields', 'quranFont', 'quranColors', 'quranSize'];
+export const pickPrint = (layout) => Object.fromEntries(PRINT_KEYS.filter(k => layout?.[k] !== undefined).map(k => [k, layout[k]]));
+
+// Ready-made combinations of the print settings, so teachers don't need to set each one.
+export const PAGE_PRESETS = [
+  { id: 'paper', icon: 'ScrollText', label: 'Exam paper', hint: 'Header + marks table, questions follow', patch: { coverStyle: 'table', pageBorder: true, showFooter: true } },
+  { id: 'exam', icon: 'BookOpen', label: 'Full exam', hint: 'Separate cover page with marks table', patch: { coverStyle: 'full', pageBorder: true, showFooter: true } },
+  { id: 'test', icon: 'FileText', label: 'Class test', hint: 'Name strip, no cover page', patch: { coverStyle: 'compact', pageBorder: true, showFooter: true } },
+  { id: 'simple', icon: 'File', label: 'Simple sheet', hint: 'Just the questions', patch: { coverStyle: 'none', pageBorder: false, showFooter: false } },
+];
+export const presetOf = (layout) => PAGE_PRESETS.find(p => Object.entries(p.patch).every(([k, v]) => layout?.[k] === v))?.id || null;
+
+// Default header/layout for a new paper in a given language.
+export const defaultsFor = (language = 'lsd', base = {}) => {
+  const L = LANGUAGES[language] || LANGUAGES.lsd;
+  return {
+    header: { ...DEFAULT_HEADER, ...L.header },
+    layout: { ...DEFAULT_LAYOUT, ...base, language, studentFields: L.studentFields },
+    subjects: [{ id: uid(), title: L.firstSubject, questions: [] }],
+  };
+};
+
+export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+export const parseMarks = (m) => {
+  const n = parseFloat(m);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+const round2 = (n) => Math.round(n * 100) / 100;
+// Sub-questions (written parts, ayat, sentences, MCQs, statements…) can carry their own marks.
+// When they do, the question's marks are the sum of them; otherwise the marks typed on the question are used.
+export const SUB_KEYS = ['subQuestions', 'blanks', 'items'];
+export const itemsMarks = (q) => round2(SUB_KEYS.reduce((t, k) => t + (Array.isArray(q?.[k]) ? q[k] : []).reduce((s, it) => s + parseMarks(it?.marks), 0), 0));
+export const questionMarks = (q) => { const sum = itemsMarks(q); return sum > 0 ? sum : parseMarks(q?.marks); };
+export const subjectTotal = (subject) => round2((subject.questions || []).reduce((t, q) => t + questionMarks(q), 0));
+export const grandTotal = (subjects) => round2((subjects || []).reduce((t, s) => t + subjectTotal(s), 0));
+
+export const subLabel = (index, style, language = 'lsd') => {
+  const L = LANGUAGES[language] || LANGUAGES.lsd;
+  if (style === 'numeric') return `${L.num(index + 1)})`;
+  if (language === 'en') return `${index < 26 ? String.fromCharCode(97 + index) : index + 1})`;
+  return `${ABJAD_LABELS[index] || L.num(index + 1)})`;
+};
+export const questionLabel = (index, style, language = 'lsd') => {
+  const L = LANGUAGES[language] || LANGUAGES.lsd;
+  if (style === 'number') return `${L.num(index + 1)}.`;
+  return language === 'en' ? `Q${index + 1}.` : `س${L.num(index + 1)} :`;
+};
+export const optionLetter = (index, language = 'lsd') => (language === 'en' ? `(${String.fromCharCode(97 + index)})` : `(${ABJAD_LABELS[index] || index + 1})`);
+
+// ---------------------------------------------------------------------------
+// Question types. `icon` is a lucide icon name (see components/Icon.jsx).
+// ---------------------------------------------------------------------------
+export const QUESTION_TYPES = [
+  { type: 'quran', icon: 'BookOpenText', label: 'Quran Ayat', hint: 'Pick ayat, hide words to fill in, or ask questions on them' },
+  { type: 'subjective', icon: 'PenLine', label: 'Written Answer', hint: 'Questions with answer lines' },
+  { type: 'fillBlanks', icon: 'TextCursorInput', label: 'Fill in the Blanks', hint: 'Sentences with * blanks + word bank' },
+  { type: 'match', icon: 'ArrowRightLeft', label: 'Match the Columns', hint: 'Pairs that get jumbled' },
+  { type: 'mcq', icon: 'ListChecks', label: 'Multiple Choice', hint: 'Question with options to tick' },
+  { type: 'trueFalse', icon: 'CircleCheckBig', label: 'True / False', hint: 'Mark each statement' },
+  { type: 'whoSaid', icon: 'Quote', label: 'Who Said to Whom', hint: 'Quote → speaker & listener' },
+  { type: 'wordList', icon: 'Columns2', label: 'Word List', hint: 'Meanings, opposites, plurals… in columns' },
+  { type: 'textBlock', icon: 'AlignRight', label: 'Free Text / Passage', hint: 'Any text, poem or passage + lines' },
+  { type: 'table', icon: 'Table', label: 'Table', hint: 'Your own grid — any rows & columns' },
+  { type: 'image', icon: 'Image', label: 'Picture', hint: 'Diagram, map or picture from your phone' },
+];
+
+// Numbering skips questions marked "no number", so س١ س٢ stay continuous.
+export const questionNumbers = (questions) => {
+  let n = 0;
+  return (questions || []).map(q => (q.hideNumber ? null : n++));
+};
+
+export const newQuestion = (type, language = 'lsd') => {
+  const L = LANGUAGES[language] || LANGUAGES.lsd;
+  const base = { id: uid(), type, marks: 0, text: L.defaults[type] || '' };
+  switch (type) {
+    case 'quran': return { ...base, align: 'start', showLabels: false, items: [{ id: uid(), text: '', lines: 0, answer: '' }] };
+    case 'subjective': return { ...base, subQuestions: [{ id: uid(), text: '', lines: 3, answer: '' }] };
+    case 'fillBlanks': return { ...base, showWordBank: true, blanks: [{ id: uid(), text: '', answer: '' }] };
+    case 'match': return { ...base, pairs: [{ right: '', left: '' }] };
+    case 'mcq': return { ...base, optionLayout: 'row', items: [{ id: uid(), text: '', options: ['', '', ''], answer: null }] };
+    case 'trueFalse': return { ...base, tfStyle: 'box', items: [{ id: uid(), text: '', answer: null }] };
+    case 'whoSaid': return { ...base, saidLabels: { speaker: L.t.speaker, listener: L.t.listener }, items: [{ id: uid(), text: '', options: [], answer: '' }] };
+    case 'wordList': return { ...base, columns: 2, items: [{ id: uid(), text: '', answer: '' }] };
+    case 'textBlock': return { ...base, content: '', lines: 0, answer: '' };
+    case 'table': return { ...base, headerRow: true, rows: [['', '', ''], ['', '', ''], ['', '', '']], answer: '' };
+    case 'image': return { ...base, src: '', width: 60, caption: '', lines: 0, answer: '' };
+    default: return base;
+  }
+};
+
+// Deep copy with fresh ids (used for duplicating and for inserting templates).
+export const cloneWithNewIds = (obj) => {
+  const copy = JSON.parse(JSON.stringify(obj));
+  const walk = (o) => {
+    if (Array.isArray(o)) return o.forEach(walk);
+    if (o && typeof o === 'object') {
+      if ('id' in o) o.id = uid();
+      Object.values(o).forEach(walk);
+    }
+  };
+  walk(copy);
+  return copy;
+};
+
+// Upgrades any older saved paper format into the current shape.
+// Missing ids get a fixed value (not a random one), so loading the same paper twice gives the same result.
+const list = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : []).filter(x => x && typeof x === 'object');
+export const normalizeSubjects = (subjects) => list(subjects).map((sub, si) => ({
+  ...sub,
+  id: sub.id ?? `s${si}`,
+  title: sub.title == null ? '' : String(sub.title),
+  questions: list(sub.questions).map((q, qi) => {
+    const n = { ...q, id: q.id ?? `${sub.id ?? `s${si}`}-q${qi}`, type: q.type || 'subjective' };
+    if (n.text != null && typeof n.text !== 'string') n.text = String(n.text);
+    ['subQuestions', 'blanks', 'items'].forEach(k => { if (n[k] != null) n[k] = list(n[k]).map((x, xi) => ({ ...x, id: x.id ?? `${n.id}-${k}${xi}` })); });
+    if (n.pairs != null) n.pairs = list(n.pairs);
+    if (q.type === 'subjective' && !q.subQuestions) n.subQuestions = [{ id: uid(), text: q.questionText || '', lines: q.lines || 3 }];
+    if (q.type === 'match' && !q.pairs) n.pairs = [];
+    if (q.type === 'fillBlanks') {
+      if (q.showWordBank === undefined) n.showWordBank = true;
+      if (!n.blanks) {
+        const oldLines = (q.content || '').split('\n').filter(line => line.trim() !== '');
+        n.blanks = oldLines.map(line => ({ id: uid(), text: line, answer: '' }));
+      }
+    }
+    if (['mcq', 'trueFalse', 'whoSaid', 'wordList', 'quran'].includes(q.type) && !n.items) n.items = [];
+    if (q.type === 'table') n.rows = Array.isArray(q.rows) && q.rows.length ? q.rows.map(r => (Array.isArray(r) ? r : Array.isArray(r?.cells) ? r.cells : [''])) : [['']];
+    return n;
+  }),
+}));
+
+export const normalizeHeader = (header) => {
+  // Every field must be text: old or damaged papers can have missing or empty (null) values.
+  const raw = header && typeof header === 'object' ? header : {};
+  const h = {};
+  for (const k of Object.keys(DEFAULT_HEADER)) h[k] = raw[k] == null || raw[k] === '' ? (k === 'examName' || k === 'className' ? DEFAULT_HEADER[k] : String(raw[k] ?? DEFAULT_HEADER[k])) : String(raw[k]);
+  for (const k of Object.keys(raw)) if (!(k in h)) h[k] = raw[k];
+  // Very old papers stored the year inside the exam name.
+  if (h.examName.includes('١٤٤٦هـ')) {
+    h.examName = h.examName.replace('١٤٤٦هـ', '').trim();
+    h.hijriYear = '1446';
+  }
+  return h;
+};
+
+// The database cannot store a list inside a list (table rows), so rows are saved as
+// { cells: [...] } and turned back into plain lists when read.
+export const toCloud = (v) => {
+  if (Array.isArray(v)) return v.map(x => (Array.isArray(x) ? { cells: x.map(toCloud) } : toCloud(x)));
+  if (v && typeof v === 'object' && v.constructor === Object) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toCloud(x)]));
+  return v;
+};
+export const fromCloud = (v) => {
+  if (Array.isArray(v)) return v.map(fromCloud);
+  if (v && typeof v === 'object' && v.constructor === Object) {
+    const keys = Object.keys(v);
+    if (keys.length === 1 && keys[0] === 'cells' && Array.isArray(v.cells)) return v.cells.map(fromCloud);
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fromCloud(x)]));
+  }
+  return v;
+};
+
+// Papers saved before layout options existed get the defaults (full cover page, as before).
+export const normalizeLayout = (layout) => {
+  const l = { ...DEFAULT_LAYOUT, ...(layout || {}) };
+  if (!layout || layout.coverStyle === undefined) l.coverStyle = 'full'; // very old papers keep the cover page they were printed with
+  if (!Array.isArray(l.studentFields)) l.studentFields = DEFAULT_LAYOUT.studentFields;
+  if (!LANGUAGES[l.language]) l.language = 'lsd';
+  return l;
+};
+
+// Firestore documents are limited to 1 MB; warn before a save would fail.
+export const paperSizeKb = (obj) => Math.round(new Blob([JSON.stringify(obj)]).size / 1024);
+
+// Does this question carry anything for the answer key?
+export const hasAnswers = (q) => {
+  switch (q.type) {
+    case 'subjective': return (q.subQuestions || []).some(s => (s.answer || '').trim() || hasQuranBlanks(s.text));
+    case 'fillBlanks': return (q.blanks || []).some(b => (b.answer || '').trim() || hasQuranBlanks(b.text));
+    case 'match': return (q.pairs || []).some(p => (p.left || '').trim());
+    case 'mcq': return (q.items || []).some(i => i.answer != null);
+    case 'trueFalse': return (q.items || []).some(i => i.answer != null);
+    case 'whoSaid': case 'wordList': case 'quran': return (q.items || []).some(i => String(i.answer || '').trim() || hasQuranBlanks(i.text));
+    default: return !!(q.answer || '').trim();
+  }
+};
+
+// Does the student write anything for this question? (A plain reading passage needs no answer.)
+export const expectsAnswer = (q) => {
+  switch (q.type) {
+    case 'quran': return (q.items || []).some(i => (parseInt(i.lines) || 0) > 0 || String(i.answer || '').trim() || hasQuranBlanks(i.text));
+    case 'textBlock': case 'image': return (parseInt(q.lines) || 0) > 0 || !!(q.answer || '').trim();
+    case 'table': return (q.rows || []).some(r => r.some(c => !(c || '').trim())) || !!(q.answer || '').trim();
+    default: return true;
+  }
+};
+
+// Answer-key coverage, for the "x of y answered" hint.
+export const answerStats = (subjects) => {
+  let total = 0, done = 0;
+  (subjects || []).forEach(s => (s.questions || []).forEach(q => { if (expectsAnswer(q)) { total++; if (hasAnswers(q)) done++; } }));
+  return { total, done };
+};
+
+// ---------------------------------------------------------------------------
+// Fill-in-the-blanks sentences
+//   *   one blank          **  a wider blank (room for two words)          ***  wider still
+// Several blanks in one sentence take their answers separated with  /  |  ،  or a comma.
+// ---------------------------------------------------------------------------
+export const BLANK_SPLIT = /(\*+)/;
+export const splitBlankText = (text) => String(text ?? '').split(BLANK_SPLIT).map((part, i) => (i % 2 ? { blank: true, size: part.length } : { blank: false, text: part }));
+export const blankCount = (text) => (String(text ?? '').match(/\*+/g) || []).length;
+export const ANSWER_SEP = /\s*[/|،,]\s*/;
+// The separate answers of one sentence, one per blank (a single answer stays whole).
+export const answerParts = (b) => {
+  const answer = String(b?.answer ?? '').trim();
+  if (!answer) return [];
+  return blankCount(b?.text) > 1 ? answer.split(ANSWER_SEP).map(a => a.trim()).filter(Boolean) : [answer];
+};
