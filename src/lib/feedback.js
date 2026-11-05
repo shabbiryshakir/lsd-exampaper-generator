@@ -96,9 +96,15 @@ export const askForNotifications = async () => {
   if (typeof Notification === 'undefined') { alert('This browser cannot show notifications. Try Chrome, or install the app on your phone.'); return false; }
   return (await Notification.requestPermission()) === 'granted';
 };
-export const notify = (title, body) => {
+export const notify = async (title, body) => {
   if (!notificationsOn()) return;
-  try { const n = new Notification(title, { body, icon: `${import.meta.env.BASE_URL}pwa-192.png`, tag: 'feedback' }); n.onclick = () => { window.focus(); n.close(); }; } catch { /* some phones only allow it through a service worker */ }
+  const opts = { body, icon: `${import.meta.env.BASE_URL}pwa-192.png`, badge: `${import.meta.env.BASE_URL}pwa-192.png`, tag: 'feedback' };
+  // iPhones (installed app) and Android only show notifications through the service worker.
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) { await reg.showNotification(title, opts); return; }
+  } catch { /* fall back below */ }
+  try { const n = new Notification(title, opts); n.onclick = () => { window.focus(); n.close(); }; } catch { /* not supported */ }
 };
 
 const KIND_WORDS = { problem: 'the problem you reported', idea: 'your idea', question: 'your question', praise: 'your kind words' };
