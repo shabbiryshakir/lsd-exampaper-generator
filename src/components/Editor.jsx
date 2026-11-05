@@ -116,7 +116,7 @@ function TypePicker({ onPick, onTemplate, onClose, templates, onDeleteTemplate, 
 
 // Short one-line summary of a question for its folded card.
 const summarize = (q) => {
-  const first = describeTokens((q.type === 'quran' && q.items?.[0]?.text) || q.text || q.content || q.subQuestions?.[0]?.text || q.items?.[0]?.text || q.blanks?.[0]?.text || '') || q.pairs?.[0]?.right || q.rows?.[0]?.join(' · ') || q.caption || '';
+  const first = describeTokens((q.type === 'quran' && q.items?.[0]?.text) || q.text || q.content || q.subQuestions?.[0]?.text || q.items?.[0]?.text || q.blanks?.[0]?.text || '') || q.pairs?.[0]?.right || describeTokens((q.rows?.[0] || []).filter(x => (x || '').trim()).join(' · ')) || q.caption || '';
   return first.trim() || '—';
 };
 

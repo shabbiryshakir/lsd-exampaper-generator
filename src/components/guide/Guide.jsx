@@ -166,7 +166,7 @@ const SECTIONS = [
         <P>The book button is in every text box, so ayat can be:</P>
         <ul className="list-disc ps-5 text-slate-700 space-y-1.5 mb-4 leading-relaxed">
           <li>in the <b>question heading</b> — “Translate: ﴾…﴿”;</li>
-          <li>in a <b>table cell</b> — tap a cell, then <b>Ayat in cell</b>;</li>
+          <li>in a <b>table cell</b> — tap the <b>book button</b> inside the cell; the ayah shows right in the cell with <b>Change</b> and ✕;</li>
           <li>as <b>multiple-choice options</b>, or in a <b>match</b> column;</li>
           <li>inside a <b>fill-in-the-blanks sentence</b>, next to your own <Code>*</Code> blanks;</li>
           <li>in a <b>true/false</b> statement, a <b>who said</b> quote, a passage, a picture caption — and even in the <b>model answer</b>.</li>

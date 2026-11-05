@@ -512,7 +512,6 @@ function QuranEditor({ q, set, layout }) {
 
 function TableEditor({ q, set }) {
   const UI = useUI();
-  const [cur, setCur] = useState(null);
   const rows = q.rows || [['']];
   const cols = Math.max(1, ...rows.map(r => r.length));
   const setRows = (r) => set('rows', r);
@@ -520,25 +519,22 @@ function TableEditor({ q, set }) {
   const small = 'mt-3 text-sm px-3 py-2 rounded-xl border font-bold';
   return (
     <>
-      <Hint>Type in any cell. Leave cells empty for students to write in. Tap a cell, then <b>Ayat in cell</b>, to put Quran text in it.</Hint>
-      <div className="flex flex-wrap gap-2 mb-3">
-        <button type="button" disabled={!cur} onClick={() => UI.openQuran({ onDone: (tok) => { const old = (rows[cur.r] || [])[cur.c] || ''; cell(cur.r, cur.c, old ? `${old} ${tok}` : tok); } })} className="mt-3 text-sm bg-white text-brand-700 px-4 py-2.5 rounded-xl font-bold border border-brand-200 hover:bg-brand-50 disabled:opacity-40 inline-flex items-center gap-1.5"><Icon name="BookOpenText" size={16} />Ayat in cell</button>
+      <Hint>Type in any cell, or tap the <b>book button</b> in a cell to put an ayah in it. Leave cells empty for students to write in.</Hint>
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <AddBtn onClick={() => setRows([...rows, Array(cols).fill('')])}>Row</AddBtn>
         <AddBtn onClick={() => setRows(rows.map(r => [...r, '']))}>Column</AddBtn>
         {rows.length > 1 && <button type="button" onClick={() => setRows(rows.slice(0, -1))} className={`${small} text-red-600 border-red-200`}>− Row</button>}
         {cols > 1 && <button type="button" onClick={() => setRows(rows.map(r => r.slice(0, cols - 1)))} className={`${small} text-red-600 border-red-200`}>− Column</button>}
       </div>
       <div className="mb-3"><Toggle checked={q.headerRow} onChange={(v) => set('headerRow', v)}>First row is a heading (shaded, bold)</Toggle></div>
-      {rows.flatMap((row, r) => Array.from({ length: cols }, (_, c) => (typeof row[c] === 'string' && row[c].includes('{{q')
-        ? <div key={`ay${r}-${c}`} className="mb-2"><div className="text-xs font-bold text-slate-500">Row {r + 1}, column {c + 1}</div><TokenChips value={row[c]} onChange={(v) => cell(r, c, v)} /></div> : null)))}
       <div className="overflow-x-auto">
-        <table className="border-collapse" dir={UI.dir}>
+        <table className="w-full border-collapse table-fixed" dir={UI.dir} style={{ minWidth: cols * 150 }}>
           <tbody>
             {rows.map((row, r) => (
               <tr key={r}>
                 {Array.from({ length: cols }, (_, c) => (
-                  <td key={c} className="border border-slate-300 p-0">
-                    <input type="text" value={row[c] || ''} onChange={(e) => cell(r, c, e.target.value)} onFocus={() => setCur({ r, c })} dir={UI.dir} className={`w-32 px-2 py-2 ${UI.font} text-lg outline-none focus:bg-brand-50 ${q.headerRow && r === 0 ? 'bg-slate-100 font-bold' : 'bg-white'}`} />
+                  <td key={c} className={`border border-slate-300 p-0 align-top ${q.headerRow && r === 0 ? 'bg-slate-100' : 'bg-white'}`}>
+                    <TableCell value={row[c] || ''} head={q.headerRow && r === 0} onChange={(v) => cell(r, c, v)} />
                   </td>
                 ))}
               </tr>
@@ -547,6 +543,41 @@ function TableEditor({ q, set }) {
         </table>
       </div>
     </>
+  );
+}
+
+// One table cell: plain text with a book button, or — when it holds an ayah — the ayah itself with Change / ✕.
+function TableCell({ value, head, onChange }) {
+  const UI = useUI();
+  useQuran();
+  const [edit, setEdit] = useState(false);
+  const parts = parseRich(value);
+  const tokens = parts.filter(p => p.token);
+  const icon = 'w-7 h-7 rounded-lg flex items-center justify-center';
+  if (tokens.length && !edit) {
+    const extra = parts.filter(p => !p.token).map(p => p.text).join(' ').trim();
+    return (
+      <div className="p-1.5">
+        <div className={`quran-scope qf-${UI.quranFont} text-slate-900 leading-relaxed`} style={{ fontSize: 20 }} dir="rtl">
+          {parts.map((p, i) => (p.token ? <QuranRun key={i} token={p.token} reveal /> : <span key={i} className={UI.font}>{p.text}</span>))}
+        </div>
+        <div className="flex items-center gap-1 mt-1" dir="ltr">
+          <button type="button" onClick={() => UI.openQuran({ initial: tokens[0].token, onDone: (tok) => onChange(value.replace(tokens[0].raw, tok)) })} className="px-2 h-7 rounded-lg text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 inline-flex items-center gap-1"><Icon name="Pencil" size={12} />Change</button>
+          <button type="button" title={extra ? 'Edit the words in this cell' : 'Add words to this cell'} aria-label="Edit cell text" onClick={() => setEdit(true)} className={`${icon} text-slate-500 hover:bg-slate-100`}><Icon name="Type" size={14} /></button>
+          <span className="flex-1" />
+          <button type="button" aria-label="Empty this cell" onClick={() => onChange('')} className={`${icon} text-slate-400 hover:text-red-600 hover:bg-red-50`}><Icon name="X" size={14} /></button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="relative">
+      <textarea rows={1} value={value} onChange={(e) => onChange(e.target.value)} onBlur={() => setEdit(false)} autoFocus={edit} dir={UI.dir}
+        className={`w-full resize-none px-2 py-2 pe-9 ${UI.font} text-lg outline-none focus:bg-brand-50 bg-transparent ${head ? 'font-bold' : ''}`} />
+      <button type="button" aria-label="Put an ayah in this cell" title="Put an ayah in this cell" onMouseDown={(e) => e.preventDefault()}
+        onClick={() => UI.openQuran({ onDone: (tok) => { setEdit(false); onChange(value.trim() ? `${value.trim()} ${tok}` : tok); } })}
+        className={`absolute end-1 top-1.5 ${icon} text-brand-600 hover:bg-brand-50`}><Icon name="BookOpenText" size={16} /></button>
+    </div>
   );
 }
 
