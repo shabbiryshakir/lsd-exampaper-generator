@@ -1,6 +1,7 @@
 import { useState, useRef, useLayoutEffect, createContext, useContext } from 'react'
 import { uid, subLabel, langOf, itemsMarks } from '../lib/paper'
-import { draftLisanInPlace, hasEnglish } from '../lib/lisanDraft'
+import { draftLisanInPlace, hasEnglish, unknownWords } from '../lib/lisanDraft'
+import { logEvent } from '../lib/activity'
 import { resizeImage } from '../lib/pdf'
 import { parseRich, tokenTitle, useQuran } from '../lib/quran'
 import { QuranRun } from './QuranText'
@@ -58,7 +59,7 @@ function QuranButton({ value, onChange, caret }) {
 // "A→ع": turns English letters typed in a Lisan box into Lisan script (a draft — check the spelling).
 function LsdButton({ value, onChange }) {
   return (
-    <button type="button" title="Turn the English letters into Lisan script" aria-label="Convert English letters to Lisan script" onClick={() => onChange(draftLisanInPlace(value))}
+    <button type="button" title="Turn the English letters into Lisan script" aria-label="Convert English letters to Lisan script" onClick={() => { const out = draftLisanInPlace(value); logEvent('lisan_convert', { from: String(value).slice(0, 300), to: out.slice(0, 300), unknown: unknownWords(value) }); onChange(out); }}
       className="absolute end-11 top-1.5 h-8 px-2 rounded-lg text-sm font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 flex items-center whitespace-nowrap"><bdi>A→ع</bdi></button>
   );
 }
