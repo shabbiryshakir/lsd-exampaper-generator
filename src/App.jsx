@@ -8,6 +8,7 @@ import PaperPreview from './components/PaperPreview'
 import Icon from './components/Icon'
 import ErrorBoundary from './components/ErrorBoundary'
 import AdminPanel, { isAdmin } from './components/AdminPanel'
+import { logEvent, startPresence } from './lib/activity'
 import { Wordmark, BrandMark } from './components/Brand'
 import Guide from './components/guide/Guide'
 import WhatsNewBody from './components/WhatsNew'
@@ -159,6 +160,12 @@ function App() {
   const [isNewPaper, setIsNewPaper] = useState(false);
   const [paperMeta, setPaperMeta] = useState({ ownerId: null, members: [], memberInfo: {}, inviteCode: null, shareCodes: {} });
   const [modal, setModal] = useState(null);
+  // Installed app: ask once for permission to send notifications (a tap is required on iPhone).
+  const [notifAsk, setNotifAsk] = useState(() => { try { return isStandalone() && typeof Notification !== 'undefined' && Notification.permission === 'default' && !localStorage.getItem('notifAsked'); } catch { return false; } });
+  const askNotif = () => {
+    store.set('notifAsked', '1'); setNotifAsk(false);
+    Notification.requestPermission().then(r => logEvent('notification_permission', { result: r })).catch(() => {});
+  };
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // all | shared
@@ -278,6 +285,8 @@ function App() {
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
     window.addEventListener('beforeinstallprompt', onPrompt);
+    const onInstalled = () => logEvent('app_installed');
+    window.addEventListener('appinstalled', onInstalled);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); window.removeEventListener('beforeinstallprompt', onPrompt); };
   }, []);
 
@@ -296,6 +305,7 @@ function App() {
         // Name and email let the admin panel show who each teacher is.
         setDoc(doc(db, 'users', currentUser.uid), { displayName: currentUser.displayName || '', email: currentUser.email || '', lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
         loadUserPapers(currentUser.uid);
+        startPresence(currentUser); logEvent('open');
         if (isAdmin(currentUser)) countNewFeedback().then(setAdminNew).catch(() => {});
       } else { setUser(null); setAppState('login'); }
     });
@@ -934,6 +944,14 @@ function App() {
       {/* ---------------- HOME ---------------- */}
       {appState === 'dashboard' && (
         <main className="max-w-5xl mx-auto px-4 pt-6" style={{ zoom: uiZoom }}>
+          {notifAsk && (
+            <div className="mb-4 flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 p-3">
+              <Icon name="Bell" className="text-amber-700" />
+              <p className="flex-1 text-sm font-bold text-amber-900">Turn on notifications to hear about new features and updates.</p>
+              <button onClick={askNotif} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-bold">Turn on</button>
+              <button onClick={() => { store.set('notifAsked', '1'); setNotifAsk(false); }} className="text-sm font-bold text-amber-800">Not now</button>
+            </div>
+          )}
           <section className="relative overflow-hidden rounded-3xl bg-brand-900 text-white p-5 sm:p-7 mb-6 shadow-lift">
             <div className="absolute -right-16 -top-20 w-64 h-64 rounded-full bg-brand-500/30 blur-2xl" />
             <div className="absolute right-6 bottom-4 opacity-15 hidden sm:block"><BrandMark size={120} /></div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import Icon from './Icon'
+import ActivityTab from './ActivityTab'
 import { fromCloud, normalizeHeader } from '../lib/paper'
 import { loadFeedback, setFeedbackStatus, removeFeedback, FEEDBACK_KINDS } from '../lib/feedback'
 
@@ -130,12 +131,13 @@ export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'u
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex bg-slate-100 p-1 rounded-xl">
-          {[['feedback', 'Feedback'], ['users', 'Teachers'], ['papers', 'All papers']].map(([k, l]) => <button key={k} onClick={() => { setTab(k); setSelected(null); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold inline-flex items-center gap-1.5 ${tab === k ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500'}`}>{l}{k === 'feedback' && newCount > 0 && <span className="bg-amber-500 text-white text-[11px] leading-none rounded-full px-1.5 py-1">{newCount}</span>}</button>)}
+          {[['activity', 'Activity'], ['feedback', 'Feedback'], ['users', 'Teachers'], ['papers', 'All papers']].map(([k, l]) => <button key={k} onClick={() => { setTab(k); setSelected(null); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold inline-flex items-center gap-1.5 ${tab === k ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500'}`}>{l}{k === 'feedback' && newCount > 0 && <span className="bg-amber-500 text-white text-[11px] leading-none rounded-full px-1.5 py-1">{newCount}</span>}</button>)}
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search" className="flex-1 min-w-[10rem] border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" />
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 p-2 mb-10">
+        {tab === 'activity' && <ActivityTab />}
         {tab === 'feedback' && (
           <div className="p-2">
             {fb.error && <p className="text-red-600 font-bold p-2">{fb.error}</p>}

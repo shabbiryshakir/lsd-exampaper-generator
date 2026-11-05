@@ -96,3 +96,13 @@ export function draftLisanInPlace(text) {
 
 /** Does this text hold English words that could be converted (outside Quran tokens)? */
 export const hasEnglish = (text) => String(text ?? '').split(TOKEN_SPLIT).some((chunk, i) => i % 2 === 0 && /[A-Za-z]{2,}/.test(chunk));
+
+/** English words in a text that are NOT in the built-in dictionary (spelled out phonetically instead) — worth adding to WORDS. */
+export function unknownWords(text) {
+  const out = new Set();
+  String(text ?? '').split(TOKEN_SPLIT).forEach((chunk, i) => {
+    if (i % 2) return;
+    (chunk.match(/[A-Za-z&]{2,}/g) || []).forEach((w) => { const k = w.toLowerCase(); if (k !== 'the' && !(k in WORDS)) out.add(k); });
+  });
+  return [...out].slice(0, 30);
+}
