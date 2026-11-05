@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { draftLisan, draftLisanInPlace, hasEnglish } from '../src/lib/lisanDraft'
+import { convertFinishedWord } from '../src/lib/englishTyping'
 import { questionMarks, itemsMarks, subjectTotal, grandTotal, splitBlankText, blankCount, answerParts, normalizeLayout, normalizeSubjects, DEFAULT_LAYOUT, PAGE_PRESETS } from '../src/lib/paper'
 
 describe('English → Lisan draft', () => {
@@ -93,5 +94,29 @@ describe('layouts', () => {
     expect(normalizeSubjects(null)).toEqual([])
     const s = normalizeSubjects([{ title: 'x', questions: [{ type: 'subjective', marks: 1, subQuestions: [{ text: 'a', lines: 2 }] }] }])
     expect(s[0].questions[0].subQuestions[0].lines).toBe(2)
+  })
+})
+
+describe('Typing in English letters turns finished words into Lisan', () => {
+  it('converts the word before the space and moves the caret with it', () => {
+    const r = convertFinishedWord('Murtaza ', 8)
+    expect(r.value).toBe('مرتضى ')
+    expect(r.caret).toBe('مرتضى '.length)
+  })
+  it('works in the middle of a line and keeps what is after the caret', () => {
+    const r = convertFinishedWord('ابن bhai  الدين', 9)
+    expect(r.value).toBe('ابن بھائي  الدين')
+    expect(r.caret).toBe('ابن بھائي '.length)
+  })
+  it('leaves single letters, Lisan script, numbers, blanks and Quran tokens alone', () => {
+    expect(convertFinishedWord('a ', 2)).toBeNull()
+    expect(convertFinishedWord('مرتضى ', 6)).toBeNull()
+    expect(convertFinishedWord('12 ', 3)).toBeNull()
+    expect(convertFinishedWord('** ', 3)).toBeNull()
+    expect(convertFinishedWord('{{q 2:255 b=3 ', 14)).toBeNull()
+  })
+  it('only fires after a word boundary, never mid-word', () => {
+    expect(convertFinishedWord('Murtaz', 6)).toBeNull()
+    expect(convertFinishedWord('Murtaza,', 8).value).toBe('مرتضى,')
   })
 })

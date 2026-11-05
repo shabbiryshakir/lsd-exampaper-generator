@@ -145,6 +145,15 @@ section('6. English → Lisan script')
   await box.fill('Ali {{q 112:1 b=2}} *'); await pg.getByRole('button', { name: 'Convert English letters to Lisan script' }).first().click(); await pg.waitForTimeout(300)
   const v = await box.inputValue()
   check('Quran token and blank are left untouched', v.includes('{{q 112:1 b=2}}') && v.includes('*') && v.includes('علي'), v)
+  // Automatic: typing English letters converts each finished word, and the caret stays where it was.
+  await box.fill(''); await box.click()
+  check('a tip about typing in English is shown under the box being edited', await pg.getByText('type in English letters, e.g.').count() === 1)
+  await pg.keyboard.type('Murtaza bhai ', { delay: 20 })
+  check('words turn into Lisan script as you press space', (await box.inputValue()) === 'مرتضى بھائي ', await box.inputValue())
+  await pg.keyboard.press('Home'); await pg.keyboard.type('Ali ', { delay: 20 })
+  check('typing in the middle keeps the caret in place', (await box.inputValue()) === 'علي مرتضى بھائي ' && await box.evaluate((e) => e.selectionStart) === 'علي '.length, await box.inputValue())
+  await pg.getByRole('button', { name: 'Turn off' }).first().click(); await box.click(); await pg.keyboard.press('End'); await pg.keyboard.type('Zoher ', { delay: 20 })
+  check('"Turn off" stops the automatic conversion', (await box.inputValue()).endsWith('Zoher '), await box.inputValue())
 }
 
 // ---------------------------------------------------------------------------------------------

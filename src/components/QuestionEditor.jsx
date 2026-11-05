@@ -1,6 +1,7 @@
 import { useState, useRef, useLayoutEffect, createContext, useContext } from 'react'
 import { uid, subLabel, langOf, itemsMarks } from '../lib/paper'
 import { draftLisanInPlace, hasEnglish } from '../lib/lisanDraft'
+import { convertFinishedWord, useEnglishTyping, setEnglishTyping } from '../lib/englishTyping'
 import { resizeImage } from '../lib/pdf'
 import { parseRich, tokenTitle, useQuran } from '../lib/quran'
 import { QuranRun } from './QuranText'
@@ -64,6 +65,48 @@ function LsdButton({ value, onChange }) {
 }
 const useLsd = (value) => { const UI = useUI(); return UI.lang === 'lsd' && typeof value === 'string' && hasEnglish(value); };
 
+// Shown under the box being edited in a Lisan paper, so the English-typing feature can't be missed.
+function LsdHint() {
+  const auto = useEnglishTyping();
+  const keep = (e) => e.preventDefault(); // tapping the link must not take focus away from the box
+  return (
+    <div dir="ltr" className="mt-1.5 flex items-start gap-2 text-xs leading-snug text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+      <Icon name="Languages" size={15} className="mt-px" />
+      <span className="flex-1">
+        {auto
+          ? <>Don't have an Arabic keyboard? Just type in English letters, e.g. <b>Murtaza bhai</b>. Each word turns into <span className="font-arabic text-sm">لسان</span> when you press space. Please check the spelling.</>
+          : <>Auto-convert is off. Type in English letters and tap <b>A→ع</b> to change them into Lisan.</>}
+      </span>
+      <button type="button" onMouseDown={keep} onClick={() => setEnglishTyping(!auto)} className="font-bold underline shrink-0">{auto ? 'Turn off' : 'Turn on'}</button>
+    </div>
+  );
+}
+
+// English → Lisan while typing: finished words are converted on the spot and the caret stays put.
+function useLisanTyping(value, onChange, remember, caret) {
+  const UI = useUI();
+  const auto = useEnglishTyping();
+  const [focused, setFocused] = useState(false);
+  const pending = useRef(null);
+  useLayoutEffect(() => {
+    const p = pending.current;
+    if (!p) return;
+    pending.current = null;
+    try { p.el.setSelectionRange(p.pos, p.pos); } catch { /* element gone */ }
+  }, [value]);
+  const isLsd = UI.lang === 'lsd';
+  return {
+    hint: isLsd && focused ? <LsdHint /> : null,
+    focusProps: { onFocus: () => setFocused(true), onBlur: (e) => { setFocused(false); remember(e); } },
+    onType: (e) => {
+      const el = e.target;
+      const r = isLsd && auto ? convertFinishedWord(el.value, el.selectionStart) : null;
+      if (r) { pending.current = { el, pos: r.caret }; caret.current = r.caret; onChange(r.value); }
+      else { remember(e); onChange(el.value); }
+    },
+  };
+}
+
 // A small "Marks" box for one sub-question.
 const ItemMarks = ({ value, onChange }) => (
   <div className="flex items-center gap-3" dir="ltr">
@@ -79,6 +122,7 @@ export function AutoText({ value, onChange, placeholder, className = '', minRows
   const caret = useRef(null);
   const remember = (e) => { caret.current = e.target.selectionStart; };
   const lsd = useLsd(value);
+  const typing = useLisanTyping(value, onChange, remember, caret);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -87,10 +131,11 @@ export function AutoText({ value, onChange, placeholder, className = '', minRows
   }, [value]);
   return (
     <div className="relative flex-1 min-w-0" dir={UI.dir}>
-      <textarea ref={ref} rows={minRows} value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} resize-none overflow-hidden ${noQuran ? '' : lsd ? 'pe-24' : 'pe-11'} ${className}`} />
+      <textarea ref={ref} rows={minRows} value={value} onChange={typing.onType} onSelect={remember} {...typing.focusProps} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} resize-none overflow-hidden ${noQuran ? '' : lsd ? 'pe-24' : 'pe-11'} ${className}`} />
       {!noQuran && <QuranButton value={value} onChange={onChange} caret={caret} />}
       {!noQuran && lsd && <LsdButton value={value} onChange={onChange} />}
       {!noQuran && typeof value === 'string' && value.includes('{{q') && <TokenChips value={value} onChange={onChange} />}
+      {typing.hint}
     </div>
   );
 }
@@ -100,12 +145,14 @@ function TextInput({ value, onChange, placeholder, className = '', answer = fals
   const caret = useRef(null);
   const remember = (e) => { caret.current = e.target.selectionStart; };
   const lsd = useLsd(value);
+  const typing = useLisanTyping(value, onChange, remember, caret);
   return (
     <div className="relative flex-1 min-w-0" dir={UI.dir}>
-      <input type="text" value={value} onChange={(e) => { remember(e); onChange(e.target.value); }} onSelect={remember} onBlur={remember} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} ${lsd ? 'pe-24' : 'pe-11'} ${className}`} />
+      <input type="text" value={value} onChange={typing.onType} onSelect={remember} {...typing.focusProps} placeholder={placeholder} dir={UI.dir} spellCheck={false} autoComplete="off" className={`${answer ? answerInput : baseInput} ${UI.font} ${lsd ? 'pe-24' : 'pe-11'} ${className}`} />
       <QuranButton value={value} onChange={onChange} caret={caret} />
       {lsd && <LsdButton value={value} onChange={onChange} />}
       {typeof value === 'string' && value.includes('{{q') && <TokenChips value={value} onChange={onChange} />}
+      {typing.hint}
     </div>
   );
 }

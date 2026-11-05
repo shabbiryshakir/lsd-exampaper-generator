@@ -111,7 +111,7 @@ const SECTIONS = [
         <Tip><b>More options</b> inside a question lets you start it on a new page, hide its number, or hide its marks.</Tip>
         <Tip><b>Marks for each part:</b> every sub-question (الف) ب) ج)), ayah, sentence, multiple-choice question or statement has its own <b>Marks</b> box. When you use them, the question’s marks add up by themselves and the subject and paper totals follow.</Tip>
         <Tip><b>Blanks:</b> type <b>*</b> for a blank and <b>**</b> for a wider one (two words). If a sentence has several blanks, write their answers separated by <b>/</b>, for example <b>الذي / لم</b>.</Tip>
-        <Tip><b>Typing in English letters:</b> in any Lisan box, type the words in English (for example <b>Murtaza bhai</b>) and tap <b>A→ع</b>. The Lisan script appears in the same box. It is a draft: please check the spelling.</Tip>
+        <Tip><b>No Arabic keyboard? Type in English letters.</b> Click any box in a Lisan paper and type the words in English (for example <b>Murtaza bhai</b>). Each word turns into Lisan script the moment you press space. Pasted English, or anything left over, changes when you tap <b>A→ع</b>. The tip under the box has a <b>Turn off</b> link if you would rather type the words yourself. It is a draft: please check the spelling.</Tip>
         <Tip>Made a question you will use again? Open it and tap <b>Template</b>. Your templates appear under <b>Add question → Templates</b>.</Tip>
       </>
     ),
