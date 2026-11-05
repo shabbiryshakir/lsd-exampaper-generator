@@ -9,12 +9,12 @@ export const WHATS_NEW = [
     title: 'Easier Lisan typing, parts of ayat',
     intro: 'Type in English and get Lisan script anywhere, fix spellings for everyone, and use just a part of an ayah for younger classes.',
     highlights: [
-      { icon: 'Languages', title: 'English → Lisan converter', text: 'On the home screen tap English → Lisan. Type in English letters, tap any word that is spelled wrong and fix it with the Lisan keyboard. Your fix is saved for every teacher, so the spelling gets better for all of us.', guide: 'types' },
+      { icon: 'Languages', title: 'English to LSD converter', text: 'On the home screen tap English to LSD. Type in English letters, tap any word that is spelled wrong and fix it with your Arabic keyboard. Your fix is saved for every teacher, so the spelling gets better for all of us.', guide: 'types' },
       { icon: 'BookOpenText', title: 'Only a part of an ayah', text: 'In Add ayat tap “Only a part”, then tap the first and the last word. Only those words are printed — ideal for younger classes.', guide: 'quran-pick' },
       { icon: 'Undo2', title: 'Deleted by mistake? Undo', text: 'After deleting a question or a subject, tap Undo in the message at the bottom of the screen.', guide: 'types' },
     ],
     items: [
-      'English → Lisan converter on the home screen, with a shared dictionary that learns from teachers’ corrections',
+      'English to LSD converter on the home screen, with a shared dictionary that learns from teachers’ corrections',
       'Inside a Lisan box, English words turn into Lisan as you press space',
       'Quran: choose only a part of an ayah',
       'Undo after deleting a question or a subject',

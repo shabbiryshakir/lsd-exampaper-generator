@@ -923,7 +923,7 @@ function App() {
           ) : appState === 'converter' ? (
             <>
               <IconButton icon="ArrowLeft" label="Back to home" onClick={() => setAppState('dashboard')} />
-              <div className="flex-1 min-w-0 px-1 text-lg font-bold text-slate-900">English → Lisan</div>
+              <div className="flex-1 min-w-0 px-1 text-lg font-bold text-slate-900">English to LSD</div>
             </>
           ) : appState === 'admin' ? (
             <>
@@ -962,7 +962,7 @@ function App() {
               <div className="flex flex-wrap gap-2.5">
                 <button onClick={() => setModal('newPaper')} className="bg-white text-brand-900 font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2 shadow-sm hover:bg-brand-50"><Icon name="Plus" size={20} />New paper</button>
                 <button onClick={() => openCodeModal()} className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2"><Icon name="Ticket" size={20} />Enter a code</button>
-                <button onClick={() => { setAppState('converter'); window.scrollTo(0, 0); }} className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2"><Icon name="Languages" size={20} />English → Lisan</button>
+                <button onClick={() => { setAppState('converter'); window.scrollTo(0, 0); }} className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2"><Icon name="Languages" size={20} />English to LSD</button>
               </div>
             </div>
           </section>
@@ -1088,7 +1088,7 @@ function App() {
         </main>
       )}
 
-      {appState === 'converter' && <Converter user={DEMO ? null : user} onToast={showToast} canExport={DEMO || isAdmin(user)} />}
+      {appState === 'converter' && <Converter user={DEMO ? null : user} onToast={showToast} />}
 
       {appState === 'admin' && isAdmin(user) && (
         <AdminPanel onFeedbackCount={setAdminNew} startTab={adminNew > 0 ? 'feedback' : 'users'} onOpenPaper={(p, owner) => {

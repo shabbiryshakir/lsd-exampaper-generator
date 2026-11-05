@@ -3,7 +3,9 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import Icon from './Icon'
 import { fromCloud, normalizeHeader } from '../lib/paper'
-import { loadFeedback, setFeedbackStatus, removeFeedback, FEEDBACK_KINDS, replyLink, markReplied, notificationsOn, askForNotifications } from '../lib/feedback'
+const SIGNATURE_NAME = 'M Shabbir Shakir'
+import { exportDictionary } from '../lib/dictionary'
+import { loadFeedback, setFeedbackStatus, removeFeedback, FEEDBACK_KINDS, replyEmail, gmailCompose, copyEmail, markReplied, notificationsOn, askForNotifications } from '../lib/feedback'
 
 // Emails that see the admin panel. Firestore rules (firestore.rules → isAdmin) must list the same emails.
 export const ADMIN_EMAILS = ['shabbiryshakir@gmail.com'];
@@ -18,6 +20,7 @@ const dayMs = 86400000;
 export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'users' }) {
   const [data, setData] = useState(null);
   const [notifOn, setNotifOn] = useState(notificationsOn());
+  const [replying, setReplying] = useState(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState(startTab);
   const [fb, setFb] = useState({ list: null, error: '' });
@@ -131,12 +134,20 @@ export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'u
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex bg-slate-100 p-1 rounded-xl">
-          {[['feedback', 'Feedback'], ['users', 'Teachers'], ['papers', 'All papers']].map(([k, l]) => <button key={k} onClick={() => { setTab(k); setSelected(null); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold inline-flex items-center gap-1.5 ${tab === k ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500'}`}>{l}{k === 'feedback' && newCount > 0 && <span className="bg-amber-500 text-white text-[11px] leading-none rounded-full px-1.5 py-1">{newCount}</span>}</button>)}
+          {[['feedback', 'Feedback'], ['users', 'Teachers'], ['papers', 'All papers'], ['dictionary', 'Dictionary']].map(([k, l]) => <button key={k} onClick={() => { setTab(k); setSelected(null); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold inline-flex items-center gap-1.5 ${tab === k ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500'}`}>{l}{k === 'feedback' && newCount > 0 && <span className="bg-amber-500 text-white text-[11px] leading-none rounded-full px-1.5 py-1">{newCount}</span>}</button>)}
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search" className="flex-1 min-w-[10rem] border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" />
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 p-2 mb-10">
+        {tab === 'dictionary' && (
+          <div className="p-3">
+            <p className="text-slate-700 mb-3">All English → LSD spellings: the built-in words plus every fix teachers saved in the converter. <b>JSON</b> is a plain <code>{'{ "english": "lisan" }'}</code> list, the same shape as <code>WORDS</code> in IzanVite’s <code>lib/lisan-draft.ts</code>. <b>CSV</b> opens in Excel / Sheets and shows who added each word.</p>
+            <div className="flex flex-wrap gap-2">
+              {[['json', 'Download JSON'], ['csv', 'Download CSV']].map(([f, l]) => <button key={f} type="button" onClick={async () => { const n = await exportDictionary(f); alert(`${n} words downloaded.`); }} className="px-4 py-2.5 rounded-xl bg-brand-700 text-white text-sm font-bold inline-flex items-center gap-1.5"><Icon name="Download" size={16} />{l}</button>)}
+            </div>
+          </div>
+        )}
         {tab === 'feedback' && (
           <div className="p-2">
             {fb.error && <p className="text-red-600 font-bold p-2">{fb.error}</p>}
@@ -157,11 +168,12 @@ export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'u
                   <p className="text-slate-900 whitespace-pre-wrap break-words" dir="auto">{x.message}</p>
                   {x.diag && <details className="mt-1 text-xs text-slate-500"><summary className="cursor-pointer font-bold">Technical details</summary><pre className="whitespace-pre-wrap break-words mt-1 bg-slate-50 rounded-lg p-2">{Object.entries(x.diag).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre></details>}
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {x.email && <a href={replyLink(x)} target="_blank" rel="noopener noreferrer" onClick={() => { markReplied(x.id).then(loadFb).catch(() => {}); }} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-700 text-white inline-flex items-center gap-1"><Icon name="Mail" size={13} />Reply in Gmail</a>}
+                    {x.email && <button onClick={() => setReplying(replying?.id === x.id ? null : { id: x.id, text: '' })} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-700 text-white inline-flex items-center gap-1"><Icon name="Mail" size={13} />Reply</button>}
                     {x.repliedAt && <span className="px-2 py-1.5 text-xs font-bold text-brand-700 inline-flex items-center gap-1"><Icon name="Check" size={13} />Replied {new Date(x.repliedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>}
                     <button onClick={() => markFb(x, x.status === 'new' ? 'done' : 'new')} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 text-slate-700">{x.status === 'new' ? 'Mark as done' : 'Move back to new'}</button>
                     <button onClick={() => deleteFb(x)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 border border-red-200">Delete</button>
                   </div>
+                  {replying?.id === x.id && <ReplyBox item={x} draft={replying.text} setDraft={(t) => setReplying({ id: x.id, text: t })} onSent={() => { setReplying(null); markReplied(x.id).then(loadFb).catch(() => {}); }} />}
                 </div>
               );
             })}
@@ -210,6 +222,41 @@ function Bar({ label, n, max }) {
       <span className="w-28 truncate" dir="auto">{label}</span>
       <span className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><span className="block h-full bg-brand-600 rounded-full" style={{ width: `${(n / max) * 100}%` }} /></span>
       <span className="w-8 text-end font-bold">{n}</span>
+    </div>
+  );
+}
+
+// Write a reply, see it in the app's email design, then copy it and paste it into Gmail.
+function ReplyBox({ item, draft, setDraft, onSent }) {
+  const mail = replyEmail(item, draft.trim() || '…');
+  const [step, setStep] = useState('write');
+  const send = async () => {
+    const how = await copyEmail(replyEmail(item, draft.trim()));
+    window.open(gmailCompose(item.email, mail.subject), '_blank', 'noopener');
+    setStep(how === 'html' ? 'paste' : how === 'text' ? 'paste-text' : 'manual');
+  };
+  return (
+    <div className="mt-3 border-2 border-brand-200 rounded-2xl p-3 bg-brand-50/40">
+      {step === 'write' ? (
+        <>
+          <label className="block text-xs font-bold text-slate-600 mb-1">Your reply to {item.name || item.email} (greeting, quote and signature “{SIGNATURE_NAME}” are added for you)</label>
+          <textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} dir="auto" placeholder="Write your answer here…" className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:border-brand-500 focus:outline-none bg-white" />
+          <div className="text-xs font-bold text-slate-500 mt-2 mb-1">Preview</div>
+          <iframe title="Email preview" srcDoc={mail.html} className="w-full h-80 rounded-xl border border-slate-200 bg-white" />
+          <button type="button" disabled={!draft.trim()} onClick={send} className="mt-2 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-brand-700 disabled:opacity-40 text-white text-sm font-bold inline-flex items-center justify-center gap-1.5"><Icon name="Send" size={15} />Copy email &amp; open Gmail</button>
+        </>
+      ) : (
+        <div className="text-sm text-slate-800 space-y-2">
+          <p className="font-bold text-brand-800 inline-flex items-center gap-1.5"><Icon name="Check" size={16} />Gmail is open with the address and subject filled in.</p>
+          {step === 'manual'
+            ? <p>Copying was blocked by the browser. Select the preview above, copy it, and paste it into the message.</p>
+            : <p>Click in the message box in Gmail and <b>paste</b> (Ctrl+V, ⌘V, or long-press → Paste). {step === 'paste' ? 'The designed email appears — then press Send.' : 'This browser could only copy plain text.'}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={onSent} className="px-3 py-2 rounded-xl bg-brand-700 text-white text-xs font-bold">I sent it — mark as replied</button>
+            <button type="button" onClick={() => setStep('write')} className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold">Back</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

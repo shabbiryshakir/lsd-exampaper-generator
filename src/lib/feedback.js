@@ -102,30 +102,59 @@ export const notify = (title, body) => {
 };
 
 const KIND_WORDS = { problem: 'the problem you reported', idea: 'your idea', question: 'your question', praise: 'your kind words' };
+const KIND_TITLE = { problem: 'Your problem report', idea: 'Your idea', question: 'Your question', praise: 'Your message' };
+export const SIGNATURE = { name: 'M Shabbir Shakir', role: `${BRAND.name}` };
 
-/** Opens a ready-to-send reply in Gmail (as the owner's own account) — works on any computer or phone,
- *  unlike mailto: links, which do nothing when no mail app is set up. */
-export const replyLink = (x) => {
+const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const paras = (t) => esc(t).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px">${p.replace(/\n/g, '<br>')}</p>`).join('');
+
+/** The reply as a themed HTML email (inline styles only, so Gmail keeps them) plus a plain-text copy. */
+export function replyEmail(x, reply) {
   const first = (x.name || '').trim().split(/\s+/)[0] || 'there';
   const when = x.createdAt ? new Date(x.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-  const subject = `Re: ${KIND_WORDS[x.kind] ? KIND_WORDS[x.kind].replace(/^(the|your) /, '').replace(/^./, c => c.toUpperCase()) : 'Your message'} — ${BRAND.name}`;
-  const body = [
-    `Salaam ${first},`,
-    '',
-    `Shukran for writing to us about ${KIND_WORDS[x.kind] || 'your message'} in ${BRAND.name}.`,
-    '',
-    '',
-    '',
-    'If anything else comes up, just reply to this email or use Menu → Send feedback in the app.',
-    '',
-    'Shukran,',
-    BRAND.name,
-    '',
-    '———',
-    `Your message${when ? ` (${when})` : ''}:`,
-    x.message || '',
-  ].join('\n');
-  const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: FEEDBACK_EMAIL, to: x.email || '', su: subject, body });
-  return `https://mail.google.com/mail/?${q.toString()}`;
-};
+  const subject = `Re: ${KIND_TITLE[x.kind] || 'Your message'} — ${BRAND.name}`;
+  const app = 'https://shabbiryshakir.github.io/lsd-exampaper-generator/';
+  const html = `<div style="background:#effaf8;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #d6f2ed">
+<tr><td style="background:#15403e;padding:20px 24px;color:#ffffff">
+<div style="font-size:20px;font-weight:bold;letter-spacing:.2px">${esc(BRAND.name)}</div>
+<div style="font-size:13px;color:#ade4da;margin-top:2px">${esc(BRAND.tagline)}</div>
+</td></tr>
+<tr><td style="padding:24px;font-size:15px;line-height:1.6">
+<p style="margin:0 0 14px">Salaam ${esc(first)},</p>
+<p style="margin:0 0 14px">Shukran for writing to us about ${esc(KIND_WORDS[x.kind] || 'your message')}.</p>
+${paras(reply)}
+<p style="margin:0 0 14px">If anything else comes up, just reply to this email or use <b>Menu → Send feedback</b> in the app.</p>
+<p style="margin:20px 0 0">Shukran,<br><b>${esc(SIGNATURE.name)}</b><br><span style="color:#64748b;font-size:13px">${esc(SIGNATURE.role)}</span></p>
+</td></tr>
+<tr><td style="padding:0 24px 24px">
+<div style="background:#f8fafc;border-left:4px solid #27968b;border-radius:8px;padding:12px 14px;font-size:13px;color:#475569">
+<div style="font-weight:bold;color:#18625d;margin-bottom:4px">Your message${when ? ` · ${esc(when)}` : ''}</div>
+<div dir="auto">${esc(x.message).replace(/\n/g, '<br>')}</div>
+</div>
+</td></tr>
+<tr><td style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#64748b">
+<a href="${app}" style="display:inline-block;background:#18625d;color:#ffffff;text-decoration:none;font-weight:bold;padding:9px 18px;border-radius:10px;margin-bottom:8px">Open ${esc(BRAND.name)}</a><br>
+A free community tool for LSD teachers
+</td></tr>
+</table></div>`;
+  const text = [`Salaam ${first},`, '', `Shukran for writing to us about ${KIND_WORDS[x.kind] || 'your message'}.`, '', reply, '',
+    'If anything else comes up, just reply to this email or use Menu → Send feedback in the app.', '', 'Shukran,', SIGNATURE.name, SIGNATURE.role,
+    '', '———', `Your message${when ? ` (${when})` : ''}:`, x.message || ''].join('\n');
+  return { subject, html, text };
+}
+
+/** Gmail compose window (as the owner's account) with the address and subject filled in. */
+export const gmailCompose = (to, subject) => `https://mail.google.com/mail/?${new URLSearchParams({ view: 'cm', fs: '1', authuser: FEEDBACK_EMAIL, to: to || '', su: subject }).toString()}`;
+
+/** Puts the formatted email on the clipboard, so pasting into Gmail keeps the design. */
+export async function copyEmail({ html, text }) {
+  try {
+    if (window.ClipboardItem && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+      return 'html';
+    }
+  } catch { /* fall through */ }
+  try { await navigator.clipboard.writeText(text); return 'text'; } catch { return null; }
+}
 export const markReplied = (id) => updateDoc(doc(db, 'feedback', id), { status: 'done', repliedAt: new Date().toISOString() });
