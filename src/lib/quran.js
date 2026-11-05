@@ -5,6 +5,7 @@
 //   2:255     surah 2, ayah 255          112:1-4   ayat 1 to 4
 //   b=3,7-9   hide words 3, 7, 8 and 9 (a fill-in-the-blanks inside the ayah)
 //   n=0       don't print the ayah-number ornament
+//   w=4-9     print only words 4 to 9 — a part of the ayah (for younger classes)
 // The token is replaced by the real, correctly written text (in the Quran font) wherever the paper
 // is drawn, so a heading, a table cell, an option or a blank can all hold an ayah.
 import { useEffect, useState } from 'react'
@@ -149,17 +150,19 @@ export function parseRich(text) {
     (m[4] || '').trim().split(/\s+/).filter(Boolean).forEach(o => { const [k, v] = o.split('='); opts[k] = v; });
     const from = +m[2];
     const to = m[3] ? Math.max(from, +m[3]) : from;
-    out.push({ token: { s: +m[1], from, to, blanks: parseSet(opts.b), numbers: opts.n !== '0' }, raw: m[0] });
+    const part = opts.w ? parseSet(opts.w) : null;
+    out.push({ token: { s: +m[1], from, to, blanks: parseSet(opts.b), numbers: opts.n !== '0', words: part && part.size ? part : null }, raw: m[0] });
     last = m.index + m[0].length;
   }
   if (last < str.length) out.push({ text: str.slice(last) });
   return out;
 }
 
-export const formatToken = ({ s, from, to, blanks, numbers }) => {
+export const formatToken = ({ s, from, to, blanks, numbers, words }) => {
   const range = to && to > from ? `${from}-${to}` : `${from}`;
   const b = blanks && blanks.size ? ` b=${formatSet(blanks)}` : '';
-  return `{{q ${s}:${range}${b}${numbers === false ? ' n=0' : ''}}}`;
+  const w = words && words.size ? ` w=${formatSet(words)}` : '';
+  return `{{q ${s}:${range}${b}${w}${numbers === false ? ' n=0' : ''}}}`;
 };
 
 export const hasQuran = (text) => typeof text === 'string' && text.includes('{{q') && parseRich(text).some(p => p.token);
@@ -174,7 +177,8 @@ export function tokenWords(token) {
     if (!ws) return null;
     ws.forEach((w, k) => { out.push({ a, k, i: ++i, w, last: k === ws.length - 1 }); });
   }
-  return out;
+  // A part of the ayah: keep only the chosen words (numbers stay the same, so hidden words still match).
+  return token.words && token.words.size ? out.filter(x => token.words.has(x.i)) : out;
 }
 
 // One token per ayah, so a long passage can flow over several pages. Hidden-word numbers move with the words.
@@ -185,7 +189,9 @@ export function splitToken(t) {
   for (let a = t.from; a <= t.to; a++) {
     const ws = wordsOf(t.s, a);
     if (!ws) return [t];
-    out.push({ s: t.s, from: a, to: a, numbers: t.numbers, blanks: new Set([...t.blanks].filter(i => i > offset && i <= offset + ws.length).map(i => i - offset)) });
+    const inAyah = (set) => new Set([...set].filter(i => i > offset && i <= offset + ws.length).map(i => i - offset));
+    const words = t.words ? inAyah(t.words) : null;
+    if (!words || words.size) out.push({ s: t.s, from: a, to: a, numbers: t.numbers, blanks: inAyah(t.blanks), words });
     offset += ws.length;
   }
   return out;

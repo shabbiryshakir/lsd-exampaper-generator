@@ -36,6 +36,7 @@ section('1. Dashboard: search and folders')
 {
   const pg = await open()
   const cards = () => pg.locator('button.text-start.flex-1').count()
+  check('no Copy button on paper cards', await pg.getByRole('button', { name: 'Make a copy' }).count() === 0)
   check('all demo papers are listed', await cards() === 7)
   check('search bar is shown', await pg.getByLabel('Search papers').count() === 1)
   await pg.getByLabel('Search papers').fill('حفظ القرآن'); check('search by subject', await cards() === 1)

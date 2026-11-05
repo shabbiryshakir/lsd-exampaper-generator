@@ -176,7 +176,7 @@ function StudentFieldsEditor({ fields, onChange }) {
   );
 }
 
-export default function Editor({ header, setHeader, subjects, setSubjects, layout, setLayout, activeId, setActiveId, showAnswers, setShowAnswers, templates, onSaveTemplate, onDeleteTemplate, onMakeDefaultStyle, members = [], myUid, hideJump = false, onOpenGuide }) {
+export default function Editor({ header, setHeader, subjects, setSubjects, layout, setLayout, activeId, setActiveId, showAnswers, setShowAnswers, templates, onSaveTemplate, onDeleteTemplate, onMakeDefaultStyle, members = [], myUid, hideJump = false, onOpenGuide, onDeleted = () => {} }) {
   const [openSection, setOpenSection] = useState(null);
   const [moreStyle, setMoreStyle] = useState(false);
   const isShared = members.length > 1;
@@ -369,7 +369,7 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
                 <div className="flex gap-1.5 ms-auto">
                   <button type="button" aria-label="Move subject up" disabled={sIndex === 0} onClick={() => moveSubject(sIndex, -1)} className="w-9 h-9 rounded-lg bg-slate-50 disabled:opacity-25 flex items-center justify-center"><Icon name="ChevronUp" size={18} /></button>
                   <button type="button" aria-label="Move subject down" disabled={sIndex === subjects.length - 1} onClick={() => moveSubject(sIndex, 1)} className="w-9 h-9 rounded-lg bg-slate-50 disabled:opacity-25 flex items-center justify-center"><Icon name="ChevronDown" size={18} /></button>
-                  <button type="button" aria-label="Delete subject" onClick={() => { if (window.confirm(`Delete subject "${subject.title}" and all its questions?`)) setSubjects(subjects.filter(s => s.id !== subject.id)); }} className="w-9 h-9 rounded-lg text-red-500 border border-red-100 flex items-center justify-center"><Icon name="Trash2" size={18} /></button>
+                  <button type="button" aria-label="Delete subject" title="Delete the whole subject" onClick={() => { if (window.confirm(`Delete the WHOLE subject "${subject.title}" with all ${qs.length} of its questions?\n\n(To delete one question, open it and tap Delete.)`)) { setSubjects(subjects.filter(s => s.id !== subject.id)); onDeleted('Subject'); } }} className="w-9 h-9 rounded-lg text-red-500 border border-red-100 flex items-center justify-center"><Icon name="Trash2" size={18} /></button>
                 </div>
               </div>
 
@@ -377,7 +377,7 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
                 <QuestionCard key={q.id} q={q} num={nums[qIndex]} layout={layout} open={activeId === q.id} isFirst={qIndex === 0} isLast={qIndex === qs.length - 1}
                   onOpen={() => toggle(q.id)}
                   onChange={(nq) => setQuestions(subject.id, list => list.map(x => (x.id === q.id ? nq : x)))}
-                  onRemove={() => { if (window.confirm('Delete this question?')) setQuestions(subject.id, list => list.filter(x => x.id !== q.id)); }}
+                  onRemove={() => { if (window.confirm('Delete this question?')) { setQuestions(subject.id, list => list.filter(x => x.id !== q.id)); onDeleted('Question'); } }}
                   onMove={(d) => { setQuestions(subject.id, list => { const a = [...list]; [a[qIndex], a[qIndex + d]] = [a[qIndex + d], a[qIndex]]; return a; }); scrollToCard(q.id); }}
                   onDuplicate={() => {
                     const copy = cloneWithNewIds(q);

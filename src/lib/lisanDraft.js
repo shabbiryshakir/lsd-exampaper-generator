@@ -5,7 +5,7 @@
 // everything else is spelled out phonetically. The teacher always sees the result in an editable box and
 // checks the spelling. Pure functions, no dependencies. Add words to WORDS as you meet them.
 
-const WORDS = {
+export const WORDS = {
   // people
   murtaza: 'مرتضى', fatema: 'فاطمة', fatima: 'فاطمة', husain: 'حسين', hussain: 'حسين', hasan: 'حسن', hassan: 'حسن',
   ali: 'علي', abbas: 'عباس', zainab: 'زينب', sakina: 'سكينة', sakinah: 'سكينة', huzaifa: 'حذيفة', huzefa: 'حذيفة',
@@ -24,6 +24,19 @@ const WORDS = {
   shitabi: 'شتابي', darees: 'دريس', waras: 'ورس', shadi: 'شادي', shaadi: 'شادي', walima: 'وليمة', majlis: 'مجلس',
   mubarak: 'مبارك',
 };
+
+// Spellings teachers taught the app (shared dictionary in Firestore + this device). They win over WORDS.
+let LEARNED = {};
+export const setLearnedWords = (map) => { LEARNED = { ...map }; };
+export const learnedWord = (key) => LEARNED[String(key).toLowerCase()];
+/** The draft for one English word, and where it came from: 'learned', 'dictionary' or 'guess'. */
+export function draftWord(word) {
+  const key = String(word ?? '').toLowerCase().replace(/[^a-z&]/g, '');
+  if (!key) return { key, lisan: '', source: 'guess' };
+  if (LEARNED[key]) return { key, lisan: LEARNED[key], source: 'learned' };
+  if (WORDS[key]) return { key, lisan: WORDS[key], source: 'dictionary' };
+  return { key, lisan: phonetic(key), source: 'guess' };
+}
 
 const DIGRAPHS = [
   ['sh', 'ش'], ['kh', 'خ'], ['gh', 'غ'], ['ch', 'چ'], ['th', 'ت'], ['dh', 'ذ'], ['zh', 'ژ'], ['ph', 'ف'],
@@ -69,7 +82,7 @@ export function draftLisan(english) {
         .split(/\s+/)
         .map((raw) => raw.toLowerCase().replace(/[^a-z&]/g, ''))
         .filter((key) => key && key !== 'the')
-        .map((key) => WORDS[key] ?? phonetic(key))
+        .map((key) => LEARNED[key] ?? WORDS[key] ?? phonetic(key))
         .filter(Boolean)
         .join(' '))
     .join('\n');

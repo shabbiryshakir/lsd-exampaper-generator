@@ -22,6 +22,9 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
   const [hide, setHide] = useState(!!initial?.blanks?.size);
   const [blanks, setBlanks] = useState(() => new Set(initial?.blanks || []));
   const [query, setQuery] = useState('');
+  const [part, setPart] = useState(() => (initial?.words?.size ? new Set(initial.words) : null)); // only these words
+  const [picking, setPicking] = useState(false);
+  const [anchor, setAnchor] = useState(null);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
@@ -31,15 +34,22 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
 
   const surahs = useMemo(() => (ready ? surahList() : []), [ready]);
   const count = ready ? ayahCount(s) : 0;
-  const token = { s, from, to, blanks, numbers };
+  const token = { s, from, to, blanks, numbers, words: picking ? null : part };
   const words = ready ? tokenWords({ s, from, to }) : null;
   const total = words ? words.length : 0;
   const hiddenCount = [...blanks].filter(i => i <= total).length;
   const results = useMemo(() => (ready && tab === 'search' ? searchQuran(query) : []), [ready, tab, query]);
 
-  const pickSurah = (n) => { setS(n); setFrom(1); setTo(1); setBlanks(new Set()); };
-  const pickFrom = (a) => { setFrom(a); if (to < a || to - a >= MAX_AYAT) setTo(a); setBlanks(new Set()); };
-  const pickTo = (a) => { setTo(a); setBlanks(new Set()); };
+  const resetPart = () => { setPart(null); setAnchor(null); };
+  const pickSurah = (n) => { setS(n); setFrom(1); setTo(1); setBlanks(new Set()); resetPart(); };
+  const pickFrom = (a) => { setFrom(a); if (to < a || to - a >= MAX_AYAT) setTo(a); setBlanks(new Set()); resetPart(); };
+  const pickTo = (a) => { setTo(a); setBlanks(new Set()); resetPart(); };
+  // Part of the ayah: tap the first word, then the last word.
+  const tapPart = (i) => {
+    if (anchor == null) { setAnchor(i); setPart(new Set([i])); return; }
+    const a = Math.min(anchor, i), b = Math.max(anchor, i);
+    setPart(new Set(Array.from({ length: b - a + 1 }, (_, k) => a + k))); setAnchor(null); setPicking(false);
+  };
   const toggle = (i) => setBlanks(prev => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
   // Short words (و، في، من) make poor blanks, so the quick tools prefer words with three or more letters.
   const longWords = (words || []).filter(x => normalizeArabic(wordText(x.w)).length >= 3);
@@ -57,7 +67,8 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
     clear: () => setBlanks(new Set()),
   };
 
-  const done = () => onDone(formatToken({ s, from, to, blanks: hide ? new Set([...blanks].filter(i => i <= total)) : new Set(), numbers }));
+  const inPart = (i) => !part || part.has(i);
+  const done = () => onDone(formatToken({ s, from, to, blanks: hide ? new Set([...blanks].filter(i => i <= total && inPart(i))) : new Set(), numbers, words: part && part.size < total ? part : null }));
 
   const fromOptions = Array.from({ length: count }, (_, i) => i + 1);
   const toOptions = Array.from({ length: Math.min(count, from + MAX_AYAT - 1) - from + 1 }, (_, i) => from + i);
@@ -133,6 +144,16 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
                     </label>
                   </div>
 
+                  <div className="mb-3 bg-sky-50 border border-sky-200 rounded-2xl p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-sky-900 me-auto">Whole ayah or only a part?</span>
+                      <button type="button" onClick={() => { resetPart(); setPicking(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${!part && !picking ? 'bg-sky-700 text-white border-sky-700' : 'bg-white text-sky-800 border-sky-300'}`}>Whole ayah</button>
+                      <button type="button" onClick={() => { setPicking(true); setAnchor(null); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${part || picking ? 'bg-sky-700 text-white border-sky-700' : 'bg-white text-sky-800 border-sky-300'}`}>Only a part</button>
+                    </div>
+                    {picking && <p className="text-sm text-sky-900 mt-2"><b>{anchor == null ? 'Tap the first word' : 'Now tap the last word'}</b> of the part you want on the paper.</p>}
+                    {part && !picking && <p className="text-xs text-sky-800 mt-2 font-bold">Showing {part.size} of {total} words · <button type="button" onClick={() => { setPicking(true); setAnchor(null); }} className="underline">choose again</button></p>}
+                  </div>
+
                   {hide && (
                     <div className="mb-3 bg-amber-50 border border-amber-200 rounded-2xl p-3">
                       <p className="text-sm text-amber-900 mb-2"><b>Tap the words</b> you want students to fill in. They print as lines; the answer key shows them.</p>
@@ -147,7 +168,7 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
 
                   <div className={`quran-scope qf-${quranFont} border-2 ${hide ? 'border-amber-300' : 'border-brand-100'} rounded-2xl bg-white px-4 py-3 text-slate-900`} style={{ fontSize: 26 }}>
                     <div className="text-center text-xs font-bold text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif', fontSize: 12 }}>{info?.en} · {s}:{to > from ? `${from}–${to}` : from}</div>
-                    <QuranRun token={token} onWord={hide ? toggle : undefined} marked={hide ? blanks : new Set()} />
+                    <QuranRun token={token} onWord={picking ? tapPart : hide ? toggle : undefined} marked={picking ? (part || new Set()) : hide ? blanks : new Set()} />
                   </div>
                   <details className="mt-3 text-sm text-slate-500">
                     <summary className="cursor-pointer font-bold">What do the colours mean?</summary>

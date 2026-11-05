@@ -3,7 +3,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import Icon from './Icon'
 import { fromCloud, normalizeHeader } from '../lib/paper'
-import { loadFeedback, setFeedbackStatus, removeFeedback, FEEDBACK_KINDS } from '../lib/feedback'
+import { loadFeedback, setFeedbackStatus, removeFeedback, FEEDBACK_KINDS, replyLink, markReplied, notificationsOn, askForNotifications } from '../lib/feedback'
 
 // Emails that see the admin panel. Firestore rules (firestore.rules → isAdmin) must list the same emails.
 export const ADMIN_EMAILS = ['shabbiryshakir@gmail.com'];
@@ -17,6 +17,7 @@ const dayMs = 86400000;
 // Read-only overview of every teacher and paper (same as the admin panel on the live site).
 export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'users' }) {
   const [data, setData] = useState(null);
+  const [notifOn, setNotifOn] = useState(notificationsOn());
   const [error, setError] = useState('');
   const [tab, setTab] = useState(startTab);
   const [fb, setFb] = useState({ list: null, error: '' });
@@ -139,13 +140,13 @@ export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'u
         {tab === 'feedback' && (
           <div className="p-2">
             {fb.error && <p className="text-red-600 font-bold p-2">{fb.error}</p>}
+            {!notifOn && <div className="flex flex-wrap items-center gap-2 mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-900"><Icon name="Bell" size={18} /><span className="flex-1 min-w-[12rem]">Get a notification on this device when a teacher sends a message.</span><button onClick={async () => setNotifOn(await askForNotifications())} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white">Turn on notifications</button></div>}
             <div className="flex gap-2 mb-3">
               {[['new', `New (${newCount})`], ['done', 'Done'], ['all', 'All']].map(([k, l]) => <button key={k} onClick={() => setFbFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${fbFilter === k ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600'}`}>{l}</button>)}
             </div>
             {!fb.list && <div className="flex items-center gap-2 text-slate-500 p-3"><Icon name="Loader2" />Loading…</div>}
             {fb.list && fb.list.filter(x => (fbFilter === 'all' || (fbFilter === 'new') === (x.status === 'new')) && match(x.message, x.name, x.email)).map(x => {
               const kind = FEEDBACK_KINDS.find(k => k.id === x.kind);
-              const mail = `mailto:${x.email}?subject=${encodeURIComponent('Re: your message about LSD Paper Maker')}&body=${encodeURIComponent(`\n\n— in reply to —\n${x.message}`)}`;
               return (
                 <div key={x.id} className="border-b border-slate-100 last:border-0 py-3 px-1">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1">
@@ -156,7 +157,8 @@ export default function AdminPanel({ onOpenPaper, onFeedbackCount, startTab = 'u
                   <p className="text-slate-900 whitespace-pre-wrap break-words" dir="auto">{x.message}</p>
                   {x.diag && <details className="mt-1 text-xs text-slate-500"><summary className="cursor-pointer font-bold">Technical details</summary><pre className="whitespace-pre-wrap break-words mt-1 bg-slate-50 rounded-lg p-2">{Object.entries(x.diag).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre></details>}
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {x.email && <a href={mail} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-700 text-white inline-flex items-center gap-1"><Icon name="Mail" size={13} />Reply</a>}
+                    {x.email && <a href={replyLink(x)} target="_blank" rel="noopener noreferrer" onClick={() => { markReplied(x.id).then(loadFb).catch(() => {}); }} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-700 text-white inline-flex items-center gap-1"><Icon name="Mail" size={13} />Reply in Gmail</a>}
+                    {x.repliedAt && <span className="px-2 py-1.5 text-xs font-bold text-brand-700 inline-flex items-center gap-1"><Icon name="Check" size={13} />Replied {new Date(x.repliedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>}
                     <button onClick={() => markFb(x, x.status === 'new' ? 'done' : 'new')} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 text-slate-700">{x.status === 'new' ? 'Mark as done' : 'Move back to new'}</button>
                     <button onClick={() => deleteFb(x)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 border border-red-200">Delete</button>
                   </div>

@@ -8,11 +8,13 @@ import PaperPreview from './components/PaperPreview'
 import Icon from './components/Icon'
 import ErrorBoundary from './components/ErrorBoundary'
 import AdminPanel, { isAdmin } from './components/AdminPanel'
+import Converter from './components/Converter'
+import { loadDictionary } from './lib/dictionary'
 import { Wordmark, BrandMark } from './components/Brand'
 import Guide from './components/guide/Guide'
 import WhatsNewBody from './components/WhatsNew'
 import FeedbackForm from './components/FeedbackForm'
-import { countNewFeedback } from './lib/feedback'
+import { watchNewFeedback, notify } from './lib/feedback'
 import { BRAND, BUILD_TIME, CLASSIC_URL } from './lib/brand'
 import { DEFAULT_SCHOOL_INFO, uid, LANGUAGES, langOf, defaultsFor, normalizeSubjects, normalizeHeader, normalizeLayout, paperSizeKb, cloneWithNewIds, pickPrint, answerStats, grandTotal, toCloud, fromCloud } from './lib/paper'
 import { downloadPdf, resizeImage } from './lib/pdf'
@@ -185,6 +187,18 @@ function App() {
   const [guide, setGuide] = useState(null);           // { section } while the Guide is open
   const [feedbackInit, setFeedbackInit] = useState({}); // { kind, message } to pre-fill the feedback form
   const [adminNew, setAdminNew] = useState(0);        // unread feedback (admin only)
+  // Admin: new messages appear (and ping this device) while the app is open.
+  useEffect(() => {
+    if (!user || DEMO || !isAdmin(user)) return;
+    let seen = null;
+    return watchNewFeedback((list) => {
+      setAdminNew(list.length);
+      const ids = new Set(list.map(x => x.id));
+      if (seen) list.filter(x => !seen.has(x.id)).forEach(x => notify(`New message from ${x.name || 'a teacher'}`, (x.message || '').slice(0, 140)));
+      else if (list.length) notify(`${list.length} new message${list.length === 1 ? '' : 's'} from teachers`, 'Open Menu → Admin to read and reply.');
+      seen = ids;
+    });
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const welcomed = useRef(false);
   const pagesRef = useRef(null);
   const panelRef = useRef(null);
@@ -232,7 +246,7 @@ function App() {
   const isShared = members.length > 1;
   const split = wide && appState === 'editor';
 
-  const showToast = (msg, kind = 'ok') => { setToast({ msg, kind }); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 2800); };
+  const showToast = (msg, kind = 'ok', action = null) => { setToast({ msg, kind, action }); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), action ? 7000 : 2800); };
 
   // ---- undo / redo (typing within ~0.8s counts as one step) ----
   const history = useRef({ past: [], future: [], last: null, lastAt: 0, applying: false });
@@ -296,7 +310,7 @@ function App() {
         // Name and email let the admin panel show who each teacher is.
         setDoc(doc(db, 'users', currentUser.uid), { displayName: currentUser.displayName || '', email: currentUser.email || '', lastSeen: new Date().toISOString() }, { merge: true }).catch(() => {});
         loadUserPapers(currentUser.uid);
-        if (isAdmin(currentUser)) countNewFeedback().then(setAdminNew).catch(() => {});
+        if (!DEMO) loadDictionary();
       } else { setUser(null); setAppState('login'); }
     });
     // Finish a redirect sign-in (used only when a popup cannot open) and say why it failed, if it did.
@@ -862,7 +876,7 @@ function App() {
   return (
     <div className="min-h-screen pb-24 sm:pb-10 print:pb-0 print:min-h-0 print:bg-white">
 
-      {toast && <div role="status" className={`fixed bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-2xl shadow-xl text-sm font-bold print:hidden max-w-[90vw] text-center anim-sheet ${toast.kind === 'warn' ? 'bg-amber-500 text-white' : 'bg-slate-900 text-white'}`}>{toast.msg}</div>}
+      {toast && <div role="status" className={`fixed bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-2xl shadow-xl text-sm font-bold print:hidden max-w-[90vw] text-center anim-sheet ${toast.kind === 'warn' ? 'bg-amber-500 text-white' : 'bg-slate-900 text-white'}`}>{toast.msg}{toast.action && <button type="button" onClick={() => { toast.action.run(); setToast(null); }} className="ms-3 underline text-amber-300">{toast.action.label}</button>}</div>}
 
       {/* ---------------- TOP BAR ---------------- */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 print:hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
@@ -906,6 +920,11 @@ function App() {
               </div>
               <PrimaryBtn onClick={() => { duplicatePaper(sharedView.data, 'Saved to your papers'); setSharedView(null); }} className="px-4 py-2.5 text-sm rounded-xl"><Icon name="Plus" size={16} /><span className="hidden sm:inline">Save to my papers</span><span className="sm:hidden">Save</span></PrimaryBtn>
             </>
+          ) : appState === 'converter' ? (
+            <>
+              <IconButton icon="ArrowLeft" label="Back to home" onClick={() => setAppState('dashboard')} />
+              <div className="flex-1 min-w-0 px-1 text-lg font-bold text-slate-900">English → Lisan</div>
+            </>
           ) : appState === 'admin' ? (
             <>
               <IconButton icon="ArrowLeft" label="Back to home" onClick={() => setAppState('dashboard')} />
@@ -943,6 +962,7 @@ function App() {
               <div className="flex flex-wrap gap-2.5">
                 <button onClick={() => setModal('newPaper')} className="bg-white text-brand-900 font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2 shadow-sm hover:bg-brand-50"><Icon name="Plus" size={20} />New paper</button>
                 <button onClick={() => openCodeModal()} className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2"><Icon name="Ticket" size={20} />Enter a code</button>
+                <button onClick={() => { setAppState('converter'); window.scrollTo(0, 0); }} className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold px-5 py-3 rounded-2xl inline-flex items-center gap-2"><Icon name="Languages" size={20} />English → Lisan</button>
               </div>
             </div>
           </section>
@@ -1053,7 +1073,6 @@ function App() {
                     )}
                     <div className="flex items-center border-t border-slate-100 text-sm">
                       <span className="flex-1 px-4 text-slate-400 text-xs">{paper.lastEdited ? timeAgo(new Date(paper.lastEdited).getTime()) : ''} · {grandTotal(paper.subjects)} marks</span>
-                      <button onClick={() => duplicatePaper(paper)} aria-label="Make a copy" className="px-3.5 py-3 text-slate-500 hover:bg-slate-50 inline-flex items-center gap-1.5 font-bold"><Icon name="Copy" size={16} />Copy</button>
                       {mine
                         ? <button onClick={() => trashPaper(paper)} aria-label="Move to trash" className="px-3.5 py-3 text-slate-400 hover:text-red-600 hover:bg-red-50"><Icon name="Trash2" size={18} /></button>
                         : <button onClick={() => leaveSharedPaper(paper)} aria-label="Leave paper" title="Leave paper" className="px-3.5 py-3 text-slate-400 hover:text-red-600 hover:bg-red-50"><Icon name="LogOut" size={18} /></button>}
@@ -1068,6 +1087,8 @@ function App() {
           )}
         </main>
       )}
+
+      {appState === 'converter' && <Converter user={DEMO ? null : user} onToast={showToast} canExport={DEMO || isAdmin(user)} />}
 
       {appState === 'admin' && isAdmin(user) && (
         <AdminPanel onFeedbackCount={setAdminNew} startTab={adminNew > 0 ? 'feedback' : 'users'} onOpenPaper={(p, owner) => {
@@ -1105,7 +1126,7 @@ function App() {
           ) : (
             <>
               <div className="print:hidden" style={{ zoom: uiZoom }}>
-                <Editor onOpenGuide={(section) => setGuide({ section })} header={header} setHeader={setHeader} subjects={subjects} setSubjects={setSubjects} layout={layout} setLayout={setLayout}
+                <Editor onDeleted={(what) => showToast(`${what} deleted`, 'ok', { label: 'Undo', run: undo })} onOpenGuide={(section) => setGuide({ section })} header={header} setHeader={setHeader} subjects={subjects} setSubjects={setSubjects} layout={layout} setLayout={setLayout}
                   activeId={activeId} setActiveId={setActiveId}
                   showAnswers={showAnswers} setShowAnswers={(v) => { setShowAnswers(v); store.set('showAnswers', v ? '1' : '0'); }}
                   templates={templates.filter(t => (t.language || 'lsd') === (layout.language || 'lsd'))} onSaveTemplate={saveTemplate} onDeleteTemplate={deleteTemplate}

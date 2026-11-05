@@ -120,3 +120,13 @@ describe('Typing in English letters turns finished words into Lisan', () => {
     expect(convertFinishedWord('Murtaza,', 8).value).toBe('مرتضى,')
   })
 })
+
+describe('Part of an ayah (w=)', async () => {
+  const { parseRich, formatToken } = await import('../src/lib/quran')
+  it('reads and writes the chosen words', () => {
+    const t = parseRich('{{q 2:255 w=3-6 b=4}}')[0].token
+    expect([...t.words]).toEqual([3, 4, 5, 6])
+    expect(formatToken(t)).toBe('{{q 2:255 b=4 w=3-6}}')
+    expect(parseRich('{{q 2:255}}')[0].token.words).toBeNull()
+  })
+})

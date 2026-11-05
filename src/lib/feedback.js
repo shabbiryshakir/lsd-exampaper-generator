@@ -8,7 +8,7 @@
 //      first report makes FormSubmit send ONE confirmation email to that address: open it and press
 //      "Activate". After that every report arrives as an ordinary email.
 import { db } from '../firebase'
-import { collection, doc, setDoc, getDocs, query, where, limit, updateDoc, deleteDoc } from 'firebase/firestore'
+import { collection, doc, setDoc, getDocs, query, where, limit, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { BRAND, BUILD_TIME } from './brand'
 import { LATEST_VERSION } from './whatsNew'
 
@@ -82,3 +82,50 @@ export const loadFeedback = async () => {
 };
 export const setFeedbackStatus = (id, status) => updateDoc(doc(db, 'feedback', id), { status });
 export const removeFeedback = (id) => deleteDoc(doc(db, 'feedback', id));
+
+/** Live count of new messages (admin only), so a new report shows up while the app is open. */
+export const watchNewFeedback = (onChange) => onSnapshot(
+  query(collection(db, 'feedback'), where('status', '==', 'new'), limit(99)),
+  (snap) => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+  () => {},
+);
+
+/** A system notification on this device (asks once for permission). */
+export const notificationsOn = () => typeof Notification !== 'undefined' && Notification.permission === 'granted';
+export const askForNotifications = async () => {
+  if (typeof Notification === 'undefined') { alert('This browser cannot show notifications. Try Chrome, or install the app on your phone.'); return false; }
+  return (await Notification.requestPermission()) === 'granted';
+};
+export const notify = (title, body) => {
+  if (!notificationsOn()) return;
+  try { const n = new Notification(title, { body, icon: `${import.meta.env.BASE_URL}pwa-192.png`, tag: 'feedback' }); n.onclick = () => { window.focus(); n.close(); }; } catch { /* some phones only allow it through a service worker */ }
+};
+
+const KIND_WORDS = { problem: 'the problem you reported', idea: 'your idea', question: 'your question', praise: 'your kind words' };
+
+/** Opens a ready-to-send reply in Gmail (as the owner's own account) — works on any computer or phone,
+ *  unlike mailto: links, which do nothing when no mail app is set up. */
+export const replyLink = (x) => {
+  const first = (x.name || '').trim().split(/\s+/)[0] || 'there';
+  const when = x.createdAt ? new Date(x.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const subject = `Re: ${KIND_WORDS[x.kind] ? KIND_WORDS[x.kind].replace(/^(the|your) /, '').replace(/^./, c => c.toUpperCase()) : 'Your message'} — ${BRAND.name}`;
+  const body = [
+    `Salaam ${first},`,
+    '',
+    `Shukran for writing to us about ${KIND_WORDS[x.kind] || 'your message'} in ${BRAND.name}.`,
+    '',
+    '',
+    '',
+    'If anything else comes up, just reply to this email or use Menu → Send feedback in the app.',
+    '',
+    'Shukran,',
+    BRAND.name,
+    '',
+    '———',
+    `Your message${when ? ` (${when})` : ''}:`,
+    x.message || '',
+  ].join('\n');
+  const q = new URLSearchParams({ view: 'cm', fs: '1', authuser: FEEDBACK_EMAIL, to: x.email || '', su: subject, body });
+  return `https://mail.google.com/mail/?${q.toString()}`;
+};
+export const markReplied = (id) => updateDoc(doc(db, 'feedback', id), { status: 'done', repliedAt: new Date().toISOString() });

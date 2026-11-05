@@ -4,6 +4,24 @@
 // Teachers see a dot on the menu until they open it. `guide` is the Guide section a highlight links to.
 export const WHATS_NEW = [
   {
+    version: '1.4',
+    date: 'November 2026',
+    title: 'Easier Lisan typing, parts of ayat',
+    intro: 'Type in English and get Lisan script anywhere, fix spellings for everyone, and use just a part of an ayah for younger classes.',
+    highlights: [
+      { icon: 'Languages', title: 'English → Lisan converter', text: 'On the home screen tap English → Lisan. Type in English letters, tap any word that is spelled wrong and fix it with the Lisan keyboard. Your fix is saved for every teacher, so the spelling gets better for all of us.', guide: 'types' },
+      { icon: 'BookOpenText', title: 'Only a part of an ayah', text: 'In Add ayat tap “Only a part”, then tap the first and the last word. Only those words are printed — ideal for younger classes.', guide: 'quran-pick' },
+      { icon: 'Undo2', title: 'Deleted by mistake? Undo', text: 'After deleting a question or a subject, tap Undo in the message at the bottom of the screen.', guide: 'types' },
+    ],
+    items: [
+      'English → Lisan converter on the home screen, with a shared dictionary that learns from teachers’ corrections',
+      'Inside a Lisan box, English words turn into Lisan as you press space',
+      'Quran: choose only a part of an ayah',
+      'Undo after deleting a question or a subject',
+      'The Copy button on paper cards is gone (Make a copy is still in the paper’s ⋮ menu)',
+    ],
+  },
+  {
     version: '1.3',
     date: 'November 2026',
     title: 'Cleaner pages, less typing',

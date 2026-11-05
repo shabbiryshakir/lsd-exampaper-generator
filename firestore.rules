@@ -64,6 +64,18 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // Shared English → Lisan dictionary: every teacher reads it and can add or correct a word; the admin can delete.
+    match /lisanWords/{en} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.en == en
+        && en.matches('^[a-z&]{1,40}$')
+        && request.resource.data.lisan is string
+        && request.resource.data.lisan.size() > 0 && request.resource.data.lisan.size() <= 60
+        && request.resource.data.by == me();
+      allow delete: if isAdmin();
+    }
+
     // Invite codes to work on a paper together.
     match /invites/{code} {
       allow get: if signedIn();
