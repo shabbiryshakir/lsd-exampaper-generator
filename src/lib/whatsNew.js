@@ -9,9 +9,9 @@ export const WHATS_NEW = [
     title: 'Easier Lisan typing, parts of ayat',
     intro: 'Type in English and get Lisan script anywhere, fix spellings for everyone, and use just a part of an ayah for younger classes.',
     highlights: [
-      { icon: 'Languages', title: 'English to LSD converter', text: 'On the home screen tap English to LSD. Type in English letters, tap any word that is spelled wrong and fix it with your Arabic keyboard. Your fix is saved for every teacher, so the spelling gets better for all of us.', guide: 'types' },
-      { icon: 'BookOpenText', title: 'Only a part of an ayah', text: 'In Add ayat tap “Only a part”, then tap the first and the last word. Only those words are printed — ideal for younger classes.', guide: 'quran-pick' },
-      { icon: 'Undo2', title: 'Deleted by mistake? Undo', text: 'After deleting a question or a subject, tap Undo in the message at the bottom of the screen.', guide: 'types' },
+      { icon: 'Languages', title: 'English to LSD converter', text: 'On the home screen tap English to LSD. Type in English letters, tap any word that is spelled wrong and fix it with your Arabic keyboard. Your fix is saved for every teacher, so the spelling gets better for all of us.', guide: 'english' },
+      { icon: 'BookOpenText', title: 'Only a part of an ayah', text: 'In Add ayat tap “Only a part”, then tap the first and the last word. Only those words are printed — ideal for younger classes.', guide: 'quran-part' },
+      { icon: 'Undo2', title: 'Deleted by mistake? Undo', text: 'After deleting a question or a subject, tap Undo in the message at the bottom of the screen.', guide: 'tools' },
     ],
     items: [
       'English to LSD converter on the home screen, with a shared dictionary that learns from teachers’ corrections',
@@ -48,7 +48,7 @@ export const WHATS_NEW = [
     title: 'The Quran, your way',
     intro: 'Quran ayat are now part of every paper, written perfectly in a Mushaf font with tajweed colours — and you decide where they go.',
     highlights: [
-      { icon: 'BookOpenText', title: 'Pick ayat, never type them', text: 'Choose a surah and the ayat — or search by a few words. The Quran text appears perfectly written, with the ayah number ornament.', guide: 'quran-pick' },
+      { icon: 'BookOpenText', title: 'Pick ayat, never type them', text: 'Choose a surah and the ayat — or search by a few words. The Quran text appears perfectly written, with the ayah number ornament.', guide: 'quran-part' },
       { icon: 'TextCursorInput', title: 'Fill in the blanks inside an ayah', text: 'Tap the words you want students to complete. They print as lines as wide as the word, and the answer key fills them in for you.', guide: 'quran-blanks' },
       { icon: 'Rows3', title: 'Use ayat anywhere', text: 'In a heading, a table, a multiple-choice option, a match column, a fill-in-the-blanks sentence or an answer. Tap the book button in any text box.', guide: 'quran-anywhere' },
       { icon: 'Paintbrush', title: 'Mushaf fonts & tajweed colours', text: 'Madani-Mushaf style or clear Naskh, four sizes, and tajweed colours you can switch off for black-and-white printing.', guide: 'quran-style' },

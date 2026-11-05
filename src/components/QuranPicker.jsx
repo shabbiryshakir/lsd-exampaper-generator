@@ -12,18 +12,18 @@ const Tab = ({ on, onClick, children }) => (
 
 // The ayah picker: choose surah and ayat (or search by words), optionally hide words for a
 // fill-in-the-blanks, and get a {{q …}} token to drop into any text box.
-export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onClose, onHelp }) {
+export default function QuranPicker({ initial, mode, quranFont = 'mushaf', onDone, onClose, onHelp }) {
   const { ready, failed, retry } = useQuran();
   const [tab, setTab] = useState('pick');
   const [s, setS] = useState(initial?.s || 1);
   const [from, setFrom] = useState(initial?.from || 1);
   const [to, setTo] = useState(initial?.to || initial?.from || 1);
   const [numbers, setNumbers] = useState(initial ? initial.numbers !== false : true);
-  const [hide, setHide] = useState(!!initial?.blanks?.size);
+  const [hide, setHide] = useState(!!initial?.blanks?.size || mode === 'blanks');
   const [blanks, setBlanks] = useState(() => new Set(initial?.blanks || []));
   const [query, setQuery] = useState('');
   const [part, setPart] = useState(() => (initial?.words?.size ? new Set(initial.words) : null)); // only these words
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(mode === 'part');
   const [anchor, setAnchor] = useState(null);
 
   useEffect(() => {
@@ -117,6 +117,7 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
                 </div>
               ) : (
                 <>
+                  <p className="text-sm font-extrabold text-slate-800 mb-1.5">1. Choose the surah and ayat</p>
                   <div className="grid grid-cols-6 gap-2 mb-3">
                     <label className="col-span-6 block">
                       <span className="block text-sm font-bold text-slate-600 mb-1">Surah</span>
@@ -134,27 +135,25 @@ export default function QuranPicker({ initial, quranFont = 'mushaf', onDone, onC
                     </label>
                   </div>
 
+                  <p className="text-sm font-extrabold text-slate-800 mb-1.5">2. Whole ayah or only a part?</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <button type="button" onClick={() => { resetPart(); setPicking(false); }} className={`py-3 rounded-2xl border-2 font-bold text-sm ${!part && !picking ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-slate-200 text-slate-600'}`}>Whole ayah</button>
+                    <button type="button" onClick={() => { setPicking(true); setAnchor(null); setPart(null); }} className={`py-3 rounded-2xl border-2 font-bold text-sm ${part || picking ? 'border-sky-600 bg-sky-50 text-sky-800' : 'border-slate-200 text-slate-600'}`}>Only a part of it</button>
+                  </div>
+                  {picking && <p className="mb-3 text-sm bg-sky-50 border border-sky-200 text-sky-900 rounded-xl p-2.5"><b>{anchor == null ? 'Tap the FIRST word' : 'Now tap the LAST word'}</b> of the part you want, in the ayah below.</p>}
+                  {part && !picking && <p className="mb-3 text-xs text-sky-800 font-bold">Only {part.size} of {total} words will be printed · <button type="button" onClick={() => { setPicking(true); setAnchor(null); setPart(null); }} className="underline">choose again</button></p>}
+                  <p className="text-sm font-extrabold text-slate-800 mb-1.5 mt-1">3. Students read it, or fill in missing words?</p>
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-3">
                     <div className="inline-flex bg-slate-100 rounded-xl p-1 gap-1">
-                      <button type="button" onClick={() => setHide(false)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${!hide ? 'bg-white shadow text-brand-700' : 'text-slate-500'}`}>Show the ayat</button>
-                      <button type="button" onClick={() => setHide(true)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${hide ? 'bg-white shadow text-amber-700' : 'text-slate-500'}`}>Hide words to fill in</button>
+                      <button type="button" onClick={() => setHide(false)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${!hide ? 'bg-white shadow text-brand-700' : 'text-slate-500'}`}>Just show it</button>
+                      <button type="button" onClick={() => setHide(true)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${hide ? 'bg-white shadow text-amber-700' : 'text-slate-500'}`}>Hide words (fill in)</button>
                     </div>
                     <label className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer select-none">
                       <input type="checkbox" checked={numbers} onChange={(e) => setNumbers(e.target.checked)} className="w-5 h-5 accent-brand-600" />Ayah numbers <span className="quran-scope text-xl leading-none" style={{ fontFamily: 'var(--quran-font)' }}>۝١</span>
                     </label>
                   </div>
 
-                  <div className="mb-3 bg-sky-50 border border-sky-200 rounded-2xl p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-bold text-sky-900 me-auto">Whole ayah or only a part?</span>
-                      <button type="button" onClick={() => { resetPart(); setPicking(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${!part && !picking ? 'bg-sky-700 text-white border-sky-700' : 'bg-white text-sky-800 border-sky-300'}`}>Whole ayah</button>
-                      <button type="button" onClick={() => { setPicking(true); setAnchor(null); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${part || picking ? 'bg-sky-700 text-white border-sky-700' : 'bg-white text-sky-800 border-sky-300'}`}>Only a part</button>
-                    </div>
-                    {picking && <p className="text-sm text-sky-900 mt-2"><b>{anchor == null ? 'Tap the first word' : 'Now tap the last word'}</b> of the part you want on the paper.</p>}
-                    {part && !picking && <p className="text-xs text-sky-800 mt-2 font-bold">Showing {part.size} of {total} words · <button type="button" onClick={() => { setPicking(true); setAnchor(null); }} className="underline">choose again</button></p>}
-                  </div>
-
-                  {hide && (
+                  {hide && !picking && (
                     <div className="mb-3 bg-amber-50 border border-amber-200 rounded-2xl p-3">
                       <p className="text-sm text-amber-900 mb-2"><b>Tap the words</b> you want students to fill in. They print as lines; the answer key shows them.</p>
                       <div className="flex flex-wrap gap-1.5">

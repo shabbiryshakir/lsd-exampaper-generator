@@ -416,7 +416,7 @@ export default function Editor({ header, setHeader, subjects, setSubjects, layou
         )}
 
         {quranDlg && (
-          <QuranPicker onHelp={onOpenGuide ? () => onOpenGuide('quran-pick') : undefined} initial={quranDlg.initial} quranFont={layout.quranFont === 'naskh' ? 'naskh' : 'mushaf'} onClose={() => setQuranDlg(null)}
+          <QuranPicker onHelp={onOpenGuide ? () => onOpenGuide('quran-pick') : undefined} initial={quranDlg.initial} mode={quranDlg.mode} quranFont={layout.quranFont === 'naskh' ? 'naskh' : 'mushaf'} onClose={() => setQuranDlg(null)}
             onDone={(tok) => { quranDlg.onDone(tok); setQuranDlg(null); }} />
         )}
 

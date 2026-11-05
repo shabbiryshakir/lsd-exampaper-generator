@@ -433,6 +433,56 @@ export default function QuestionEditor({ q, onChange, layout }) {
   );
 }
 
+// One ayah in a Quran Ayat question: a clear card instead of the raw {{q …}} code.
+function AyahItem({ it, i, layout, canRemove, update, remove }) {
+  const UI = useUI();
+  useQuran();
+  const [words, setWords] = useState(false);
+  const parts = parseRich(it.text || '');
+  const tokens = parts.filter(p => p.token);
+  const onlyAyah = tokens.length === 1 && parts.every(p => p.token || !p.text.trim());
+  const p = tokens[0];
+  const open = (mode) => UI.openQuran({ initial: p.token, mode, onDone: (tok) => update({ text: it.text.replace(p.raw, tok) }) });
+  const btn = 'px-3 py-2 rounded-xl text-xs font-bold border inline-flex items-center gap-1.5';
+  return (
+    <div className="bg-white p-2.5 rounded-2xl border border-slate-200">
+      {onlyAyah && !words ? (
+        <>
+          <div className="flex items-start gap-2" dir="ltr">
+            <span className="text-xs font-bold text-brand-800 bg-brand-50 rounded-lg px-2 py-1 inline-flex items-center gap-1"><Icon name="BookOpenText" size={13} />{tokenTitle(p.token)}</span>
+            {p.token.words && <span className="text-xs font-bold text-sky-800 bg-sky-50 rounded-lg px-2 py-1">Part: {p.token.words.size} words</span>}
+            {p.token.blanks.size > 0 && <span className="text-xs font-bold text-amber-800 bg-amber-50 rounded-lg px-2 py-1">{p.token.blanks.size} hidden</span>}
+            <span className="flex-1" />
+            {canRemove && <button type="button" aria-label="Remove this ayah" onClick={remove} className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center"><Icon name="Trash2" size={16} /></button>}
+          </div>
+          <div className="flex gap-2 items-start mt-1.5" dir={UI.dir}>
+            <Label i={i} style={layout.subNumbering} />
+            <div className={`flex-1 quran-scope qf-${UI.quranFont} text-slate-900`} style={{ fontSize: 26 }}><QuranRun token={p.token} reveal /></div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2" dir="ltr">
+            <button type="button" onClick={() => open('blanks')} className={`${btn} border-amber-300 text-amber-800 bg-amber-50`}><Icon name="TextCursorInput" size={14} />Hide words</button>
+            <button type="button" onClick={() => open('part')} className={`${btn} border-sky-300 text-sky-800 bg-sky-50`}><Icon name="Columns2" size={14} />Use a part</button>
+            <button type="button" onClick={() => open()} className={`${btn} border-slate-300 text-slate-700`}><Icon name="Pencil" size={14} />Change ayah</button>
+            <button type="button" onClick={() => setWords(true)} className={`${btn} border-slate-200 text-slate-500`}><Icon name="Plus" size={14} />Add your own words</button>
+          </div>
+        </>
+      ) : (
+        <div className="flex gap-1 items-start">
+          <Label i={i} style={layout.subNumbering} />
+          <AutoText value={it.text || ''} onChange={(v) => update({ text: v })} placeholder={UI.lang === 'en' ? 'Add ayat with the book button, and type any words you like…' : 'اضغط على زر المصحف لإضافة آية…'} />
+          {canRemove && <RemoveBtn onClick={remove} />}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3 mt-2" dir="ltr">
+        <span className="text-sm font-bold text-slate-500">Answer lines</span>
+        <Stepper value={it.lines} onChange={(v) => update({ lines: v })} />
+        <ItemMarks value={it.marks} onChange={(v) => update({ marks: v })} />
+      </div>
+      {UI.answers && <div className="mt-2"><AutoText answer value={it.answer || ''} onChange={(v) => update({ answer: v })} placeholder="Answer or marking points (for the answer key)" minRows={2} /></div>}
+    </div>
+  );
+}
+
 // Quran Ayat: a list of ayat (or ayat with a question), each can hide words and carry answer lines.
 function QuranEditor({ q, set, layout }) {
   const UI = useUI();
@@ -441,26 +491,15 @@ function QuranEditor({ q, set, layout }) {
   const addAyat = () => UI.openQuran({ onDone: (tok) => set('items', [...items.filter((it, i) => i < items.length - 1 || (it.text || '').trim()), { id: uid(), text: tok, lines: 0, answer: '' }]) });
   return (
     <>
-      <Hint>Tap <b>Add ayat</b>, choose the surah and ayat — they are written perfectly in the Quran font. To make a fill-in-the-blanks, choose <b>Hide words to fill in</b> and tap the words.</Hint>
+      <Hint>Tap <b>Add ayat</b> and choose the surah and ayat. On each ayah card: <b>Hide words</b> makes a fill-in-the-blanks, <b>Use a part</b> prints only some of its words (for younger classes), <b>Change</b> picks a different ayah.</Hint>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-3 text-sm font-bold text-slate-600">
         <span className="inline-flex items-center gap-2">Show <Segmented value={q.align === 'start' ? 'start' : 'center'} onChange={(v) => set('align', v)} options={[{ value: 'center', label: 'Centred' }, { value: 'start', label: 'Normal' }]} /></span>
         <Toggle checked={q.showLabels} onChange={(v) => set('showLabels', v)}>Number each ayat</Toggle>
       </div>
       <div className="space-y-2" dir={UI.dir}>
         {items.map((it, i) => (
-          <div key={it.id} className="bg-white p-2 rounded-xl border border-slate-200">
-            <div className="flex gap-1 items-start">
-              <Label i={i} style={layout.subNumbering} />
-              <AutoText value={it.text || ''} onChange={(v) => update(it.id, { text: v })} placeholder={UI.lang === 'en' ? 'Add ayat with the book button, and type any words you like…' : 'اضغط على زر المصحف لإضافة آية…'} />
-              {items.length > 1 && <RemoveBtn onClick={() => set('items', items.filter(x => x.id !== it.id))} />}
-            </div>
-            <div className="flex items-center gap-3 mt-2 ps-11" dir="ltr">
-              <span className="text-sm font-bold text-slate-500">Answer lines</span>
-              <Stepper value={it.lines} onChange={(v) => update(it.id, { lines: v })} />
-              <ItemMarks value={it.marks} onChange={(v) => update(it.id, { marks: v })} />
-            </div>
-            {UI.answers && <div className="mt-2 ps-11"><AutoText answer value={it.answer || ''} onChange={(v) => update(it.id, { answer: v })} placeholder="Answer or marking points (for the answer key)" minRows={2} /></div>}
-          </div>
+          <AyahItem key={it.id} it={it} i={i} layout={layout} canRemove={items.length > 1}
+            update={(patch) => update(it.id, patch)} remove={() => set('items', items.filter(x => x.id !== it.id))} />
         ))}
       </div>
       <div className="flex flex-wrap gap-2">

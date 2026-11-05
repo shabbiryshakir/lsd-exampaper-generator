@@ -111,14 +111,14 @@ const SECTIONS = [
         <Tip><b>More options</b> inside a question lets you start it on a new page, hide its number, or hide its marks.</Tip>
         <Tip><b>Marks for each part:</b> every sub-question (الف) ب) ج)), ayah, sentence, multiple-choice question or statement has its own <b>Marks</b> box. When you use them, the question’s marks add up by themselves and the subject and paper totals follow.</Tip>
         <Tip><b>Blanks:</b> type <b>*</b> for a blank and <b>**</b> for a wider one (two words). If a sentence has several blanks, write their answers separated by <b>/</b>, for example <b>الذي / لم</b>.</Tip>
-        <Tip><b>No Arabic keyboard? Type in English letters.</b> Click any box in a Lisan paper and type the words in English (for example <b>Murtaza bhai</b>). Each word turns into Lisan script the moment you press space. Pasted English, or anything left over, changes when you tap <b>A→ع</b>. The tip under the box has a <b>Turn off</b> link if you would rather type the words yourself. It is a draft: please check the spelling.</Tip>
+        <Tip><b>No Arabic keyboard?</b> Type in English letters in any Lisan box — each word turns into LSD script when you press space. See <b>Type in English → LSD script</b> in this Guide.</Tip>
         <Tip>Made a question you will use again? Open it and tap <b>Template</b>. Your templates appear under <b>Add question → Templates</b>.</Tip>
       </>
     ),
   },
   {
     id: 'quran', icon: 'BookOpenText', title: 'Quran ayat — the complete guide', keywords: 'quran ayat ayah surah tajweed mushaf font fill blanks hide words search colours',
-    subs: [['quran-pick', 'Choose ayat'], ['quran-blanks', 'Hide words (blanks)'], ['quran-anywhere', 'Use ayat anywhere'], ['quran-style', 'Fonts & colours'], ['quran-key', 'Answer key'], ['quran-ideas', 'Ideas to copy'], ['quran-help', 'If something looks wrong']],
+    subs: [['quran-pick', 'Choose ayat'], ['quran-part', 'Only a part of an ayah'], ['quran-blanks', 'Hide words (blanks)'], ['quran-anywhere', 'Use ayat anywhere'], ['quran-style', 'Fonts & colours'], ['quran-key', 'Answer key'], ['quran-ideas', 'Ideas to copy'], ['quran-help', 'If something looks wrong']],
     render: () => (
       <>
         <P>You never type Quran text. You <b>pick</b> the ayat, and the app writes them perfectly in a Mushaf-style font, with tajweed colours and the ayah-number ornament. Because ayat are inserted into ordinary text boxes, you can use them <b>anywhere</b> a question can hold text.</P>
@@ -127,17 +127,34 @@ const SECTIONS = [
         <H3 id="quran-pick">1. Choose ayat</H3>
         <Steps items={[
           <>Add a <b>Quran Ayat</b> question (Add question → Quran Ayat) and tap <b>Add ayat</b>. Or, in <b>any</b> text box, tap the small <b>book button</b> at its corner.</>,
-          <>Choose the <b>Surah</b>, then <b>From ayah</b> and <b>To ayah</b>. For one ayah choose the same number twice.</>,
+          <><b>Step 1:</b> choose the <b>Surah</b>, then <b>From ayah</b> and <b>To ayah</b>. For one ayah choose the same number twice.</>,
+          <><b>Step 2:</b> <b>Whole ayah</b> or <b>Only a part of it</b> (see below).</>,
+          <><b>Step 3:</b> <b>Just show it</b>, or <b>Hide words (fill in)</b> for a fill-in-the-blanks.</>,
           <>Not sure of the number? Tap <b>Search by words</b> and type a few Arabic words from the ayah. Vowel marks don’t matter. Tap the right result.</>,
           <>Check the preview — it is exactly how the ayah prints. Tap <b>Add to question</b>.</>,
         ]} />
         <Figure caption="The ayah picker."><FigPicker /></Figure>
-        <P>Below the text box you will see a green card with the real ayah, <b>Change</b> and ✕. Tap <b>Change</b> to pick different ayat or different hidden words. You can write your own words before and after the ayah in the same text box.</P>
-        <Tip kind="warn">In the text box the ayah appears as a short code like <Code>{'{{q 112:1-2}}'}</Code>. Leave it as it is — it turns into the Quran text on the paper. Use <b>Change</b> instead of editing it by hand.</Tip>
+        <P>In a <b>Quran Ayat</b> question every ayah is a card showing the real Quran text, with four buttons:</P>
+        <ul className="list-disc ps-5 text-slate-700 space-y-1.5 mb-4 leading-relaxed">
+          <li><b>Hide words</b> — choose the words students fill in.</li>
+          <li><b>Use a part</b> — print only some words of the ayah.</li>
+          <li><b>Change ayah</b> — pick a different surah or ayah.</li>
+          <li><b>Add your own words</b> — write text before or after the ayah (for example a question about it).</li>
+        </ul>
+        <P>The bin icon on the card removes that ayah. <b>Answer lines</b> and <b>Marks</b> below each card work as in other questions.</P>
+        <Tip kind="warn">In other text boxes (and after “Add your own words”) an ayah appears as a short code like <Code>{'{{q 112:1-2}}'}</Code>. Leave it as it is — it turns into the Quran text on the paper. Use <b>Change</b> on the green card under the box instead of editing it by hand.</Tip>
 
-        <H3 id="quran-blanks">2. Hide words to make a fill-in-the-blanks</H3>
+        <H3 id="quran-part">2. Only a part of an ayah (younger classes)</H3>
         <Steps items={[
-          <>In the picker choose <b>Hide words to fill in</b>.</>,
+          <>On the ayah card tap <b>Use a part</b> (or, in the picker, <b>Only a part of it</b>).</>,
+          <>In the ayah, tap the <b>first word</b> of the part, then the <b>last word</b>. The words in between are chosen.</>,
+          <>Tap <b>Update</b>. Only that part prints; the card shows “Part: N words”. To print the whole ayah again, open it and choose <b>Whole ayah</b>.</>,
+          <>You can still hide words inside the part for a fill-in-the-blanks.</>,
+        ]} />
+
+        <H3 id="quran-blanks">3. Hide words to make a fill-in-the-blanks</H3>
+        <Steps items={[
+          <>On the ayah card tap <b>Hide words</b> (or, in the picker, <b>Hide words (fill in)</b>).</>,
           <><b>Tap the words</b> you want students to complete; they turn yellow. Tap again to bring one back.</>,
           <>In a hurry? Use the quick tools: <b>every 2nd or 3rd word</b>, <b>last 3 words</b>, <b>second half</b> (a great “complete the ayah”), or <b>3 random words</b>.</>,
           <>Tap <b>Add to question</b>. On the paper each hidden word is a line as wide as the word itself; in the <b>Answer key</b> the words are filled in.</>,
@@ -145,7 +162,7 @@ const SECTIONS = [
         <Figure caption="Tap words → blank lines on the paper → answers in the key."><FigBlanks /></Figure>
         <Tip>Inside a <b>Fill in the Blanks</b> question the hidden words also join the <b>word bank</b> automatically (if “Show the answers as a word bank” is on). Turn the bank off for a harder test.</Tip>
 
-        <H3 id="quran-anywhere">3. Use ayat anywhere</H3>
+        <H3 id="quran-anywhere">4. Use ayat anywhere</H3>
         <P>The book button is in every text box, so ayat can be:</P>
         <ul className="list-disc ps-5 text-slate-700 space-y-1.5 mb-4 leading-relaxed">
           <li>in the <b>question heading</b> — “Translate: ﴾…﴿”;</li>
@@ -157,7 +174,7 @@ const SECTIONS = [
         <Figure caption="A heading, a table and options, all holding ayat."><FigAnywhere /></Figure>
         <P>You can put several ayat in one text box (tap the book button again), and mix them with your own words. In <b>English</b> papers the ayah is still written right to left, correctly, inside the English line.</P>
 
-        <H3 id="quran-style">4. Fonts, size and colours</H3>
+        <H3 id="quran-style">5. Fonts, size and colours</H3>
         <P>Open <b>Page style</b> → <b>Quran text (ayat)</b>:</P>
         <ul className="list-disc ps-5 text-slate-700 space-y-1.5 mb-4 leading-relaxed">
           <li><b>Mushaf (Madani)</b> — the classic Madani-Mushaf look (KFGQPC Hafs). <b>Clear Naskh</b> — a rounder, easier font for young children (Scheherazade New).</li>
@@ -166,11 +183,11 @@ const SECTIONS = [
         </ul>
         <Figure caption="Same ayah, three looks."><FigStyle /></Figure>
 
-        <H3 id="quran-key">5. The answer key</H3>
+        <H3 id="quran-key">6. The answer key</H3>
         <P>You do nothing extra: hidden words appear filled in (dotted underline) in <b>Answers</b>. If you also want a note — for a translation question, say — switch on <b>Answer key</b> in the editor and type it in the yellow box; ayat work there too.</P>
         <Figure caption="Students see lines; you see every answer."><FigKey /></Figure>
 
-        <H3 id="quran-ideas">6. Ideas to copy</H3>
+        <H3 id="quran-ideas">7. Ideas to copy</H3>
         <div className="grid sm:grid-cols-2 gap-2.5 mb-4">
           {[
             ['Complete the ayah', 'Quran Ayat → pick the ayah → Hide words → “Second half”.'],
@@ -182,7 +199,7 @@ const SECTIONS = [
           ].map(([t, d]) => <div key={t} className="bg-white border border-slate-200 rounded-2xl p-3.5"><div className="font-bold text-slate-900 mb-0.5">{t}</div><div className="text-sm text-slate-600 leading-snug">{d}</div></div>)}
         </div>
 
-        <H3 id="quran-help">7. If something looks wrong</H3>
+        <H3 id="quran-help">8. If something looks wrong</H3>
         <Faq q="It says “Loading the Quran…” and nothing appears">Connect to the internet once and try again. After the first load the Quran is saved on your device and works offline.</Faq>
         <Faq q="I see a grey ﴾ Quran 2:255 … ﴿ instead of the ayah">The Quran is still loading. It appears within a moment; if not, check your internet and reopen the paper.</Faq>
         <Faq q="I see {{q 2:255}} on the paper">The code is mistyped (a missing bracket or number). Delete it and use the book button instead.</Faq>
@@ -196,6 +213,30 @@ const SECTIONS = [
             <div><Code>{'{{q 1:1-7 n=0}}'}</Code> — without the ayah-number ornaments</div>
           </div>
         </Faq>
+      </>
+    ),
+  },
+  {
+    id: 'english', icon: 'Languages', title: 'Type in English → LSD script', keywords: 'english roman transliteration convert keyboard spelling dictionary lisan lsd arabic typing',
+    render: () => (
+      <>
+        <P>No Arabic keyboard? You can write in English letters and the app turns it into Lisan ud Dawat script.</P>
+        <H3 id="english-paper">Inside a paper</H3>
+        <Steps items={[
+          <>In a <b>Lisan ud Dawat</b> paper, tap any text box. A yellow tip appears under it.</>,
+          <>Type in English letters, for example <b>Murtaza bhai ghana hushyaar che</b>.</>,
+          <>Each word turns into LSD script the moment you press <b>space</b>.</>,
+          <>Pasted English (or anything left over) changes when you tap <b>A→ع</b> in the box.</>,
+        ]} />
+        <Tip>Prefer to type the words yourself? Tap <b>Turn off</b> in the yellow tip. Tap <b>Turn on</b> to bring it back.</Tip>
+        <H3 id="english-converter">The English to LSD converter</H3>
+        <Steps items={[
+          <>On the home screen tap <b>English to LSD</b>.</>,
+          <>Type in English letters. Each word appears in LSD script with the English under it. <b>Yellow</b> words are guesses — please check them.</>,
+          <>A word spelled wrong? <b>Tap it</b>, type the correct spelling with your phone’s Arabic keyboard, and tap <b>Save for everyone</b>. Every teacher gets your spelling from then on — inside papers too.</>,
+          <>Tap <b>Copy LSD text</b> and paste it wherever you need it.</>,
+        ]} />
+        <Tip kind="warn">It is a draft: always read the result before printing.</Tip>
       </>
     ),
   },
@@ -231,7 +272,9 @@ const SECTIONS = [
     render: () => (
       <ul className="list-disc ps-5 text-slate-700 space-y-2 mb-4 leading-relaxed">
         <li><b>Templates</b> — save a question (<b>Template</b> button) or a whole paper (<b>⋮ → Save as template</b>) and reuse it.</li>
-        <li><b>Copy</b> on the home screen duplicates a paper, perfect for “Paper 2”.</li>
+        <li><b>Make a copy</b> — open the paper, tap <b>⋮ → Make a copy</b>. Perfect for “Paper 2”.</li>
+        <li><b>Deleted something by mistake?</b> After deleting a question or a subject, tap <b>Undo</b> in the message at the bottom of the screen.</li>
+        <li><b>Delete one question</b>: open it and tap <b>Delete</b> at its bottom. The bin next to a <b>subject’s name</b> deletes the whole subject with all its questions.</li>
         <li><b>Undo / Redo</b> — arrows at the top. Typing within a second counts as one step.</li>
         <li><b>Version history</b> — <b>⋮ → Version history</b> lists earlier versions saved on this device.</li>
         <li><b>Trash</b> — deleted papers stay 30 days; restore them from the home screen.</li>
