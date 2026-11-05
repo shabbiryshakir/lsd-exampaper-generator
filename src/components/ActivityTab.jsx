@@ -41,6 +41,9 @@ export default function ActivityTab() {
       today: events.filter(e => e.type === 'open' && now - new Date(e.at).getTime() < 86400000).length,
       installed: presence.filter(p => p.installed).length,
       notif: presence.filter(p => p.notifications === 'granted').length,
+      blocked: presence.filter(p => p.notifications === 'denied').length,
+      notAsked: presence.filter(p => p.installed && p.notifications === 'default').length,
+      total: presence.length,
       unknown: Object.entries(unknown).sort((a, b) => b[1] - a[1]),
     };
   }, [presence, events]);
@@ -50,7 +53,7 @@ export default function ActivityTab() {
   return (
     <div className="p-2 space-y-5">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-        {[['Online now', v.online.length], ['Opens today', v.today], ['Installed app', v.installed], ['Notifications on', v.notif]].map(([l, n]) => (
+        {[['Online now', v.online.length], ['Opens today', v.today], ['Teachers seen', v.total], ['Installed app', v.installed], ['Notifications on', v.notif], ['Blocked', v.blocked], ['Installed, not asked yet', v.notAsked]].map(([l, n]) => (
           <div key={l} className="bg-slate-50 rounded-2xl p-3"><div className="text-2xl font-extrabold text-slate-900">{n}</div><div className="text-xs font-bold text-slate-500">{l}</div></div>))}
       </div>
 
