@@ -1,8 +1,9 @@
 // English → Lisan converter: type in English letters, get Lisan script, fix any word and teach it to everyone.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Icon from './Icon'
 import { draftWord } from '../lib/lisanDraft'
 import { teachWord } from '../lib/dictionary'
+import { logEvent } from '../lib/activity'
 
 const SOURCE = {
   learned: { label: 'Checked by a teacher', cls: 'bg-brand-50 border-brand-200 text-brand-900' },
@@ -16,6 +17,7 @@ export default function Converter({ user, onToast }) {
   const [editing, setEditing] = useState(null);    // { key, value }
   const [version, setVersion] = useState(0);       // bump after teaching a word
   const [saving, setSaving] = useState(false);
+  useEffect(() => { logEvent('converter_open'); }, []);
 
   const lines = useMemo(() => english.split('\n').map((line) => line.split(/\s+/).filter(Boolean).map((raw) => {
     const d = draftWord(raw);
@@ -27,6 +29,7 @@ export default function Converter({ user, onToast }) {
   const guesses = new Set(lines.flat().filter((w) => w.source === 'guess').map((w) => w.key)).size;
 
   const copy = async () => {
+    logEvent('converter_copy', { from: english.slice(0, 300), to: result.slice(0, 300) });
     try { await navigator.clipboard.writeText(result); onToast('Copied — paste it into your paper'); }
     catch { window.prompt('Copy this:', result); }
   };

@@ -7,6 +7,7 @@
 import { db } from '../firebase'
 import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore'
 import { setLearnedWords } from './lisanDraft'
+import { logEvent } from './activity'
 
 const KEY = 'qalam.lisanWords';
 const MINE = 'qalam.lisanWords.mine';
@@ -44,6 +45,7 @@ export async function teachWord(user, english, lisan) {
   try {
     await setDoc(doc(db, 'lisanWords', en), { en, lisan: li, by: user.uid, byName: user.displayName || '', updatedAt: new Date().toISOString() });
     shared[en] = li; write(KEY, shared);
+    logEvent('word_added', { en, lisan: li });
     return true;
   } catch (e) { console.warn('Word kept on this device only', e?.code || e); return false; }
 }

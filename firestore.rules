@@ -76,6 +76,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Usage tracking for the admin Activity tab: a teacher writes only their own; only the admin reads.
+    match /presence/{uid} {
+      allow create, update: if signedIn() && me() == uid;
+      allow read: if isAdmin();
+    }
+    match /events/{id} {
+      allow create: if signedIn() && request.resource.data.userId == me() && request.resource.data.type is string;
+      allow read: if isAdmin();
+    }
+
     // Invite codes to work on a paper together.
     match /invites/{code} {
       allow get: if signedIn();

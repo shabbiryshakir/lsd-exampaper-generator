@@ -38,5 +38,5 @@ export function convertFinishedWord(text, caret) {
   if (!lisan) return null;
   const start = before.length - m[0].length;
   const head = v.slice(0, start) + lisan;
-  return { value: head + v.slice(caret - 1), caret: head.length + 1 };
+  return { value: head + v.slice(caret - 1), caret: head.length + 1, word: m[0], lisan };
 }
